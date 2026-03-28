@@ -1,9 +1,14 @@
 import { GoogleGenAI } from "@google/genai";
 import { baseSystemPrompt, getExtratoPromptByAction, ActionType } from "../ai/promptResolver";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
-
 export const getExtratoAIResponse = async (action: ActionType, context: any, userQuestion?: string) => {
+  const googleApiKey = import.meta.env.VITE_GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
+  
+  if (!googleApiKey) {
+    throw new Error("Chave da API do Gemini não configurada.");
+  }
+
+  const ai = new GoogleGenAI({ apiKey: googleApiKey });
   const prompt = getExtratoPromptByAction(action, userQuestion);
   const fullPrompt = `${prompt}\n\n${JSON.stringify(context, null, 2)}`;
   

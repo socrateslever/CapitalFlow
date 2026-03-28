@@ -157,7 +157,11 @@ export const CustomerAcquisitionPage: React.FC<{ activeUser: UserProfile | null,
     
     setGeneratingImage(true);
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const googleApiKey = import.meta.env.VITE_GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
+      if (!googleApiKey) {
+        throw new Error("Chave da API do Gemini não configurada.");
+      }
+      const ai = new GoogleGenAI({ apiKey: googleApiKey });
       const prompt = `Create a professional, clean, and trustworthy social media image for a financial service campaign named "${form.name}". 
       Text to include: "Simule seu crédito" and "Escolha o valor e fale no WhatsApp". 
       Style: Commercial, financial, blue and white tones, high quality. 
