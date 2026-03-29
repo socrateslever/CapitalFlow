@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { Loan, LoanStatus, CapitalSource } from '../types';
 import { loanEngine, isLegallyActionable } from '../domain/loanEngine';
@@ -31,6 +31,8 @@ interface NotificationProps {
   disabled?: boolean;
 }
 
+const MAX_VISIBLE_NOTIFICATIONS = 40;
+
 export const useAppNotifications = ({
   loans,
   sources,
@@ -45,6 +47,10 @@ export const useAppNotifications = ({
   const notifiedDueLoans = useRef<Set<string>>(new Set());
   const notifiedUnsignedLegal = useRef<Set<string>>(new Set());
   const lastUserId = useRef<string | null>(null);
+  const notificationsRef = useRef<InAppNotification[]>([]);
+  const queueRef = useRef<Omit<InAppNotification, 'id' | 'createdAt'>[]>([]);
+  const queueTimer = useRef<any>(null);
+  const isQueueRunning = useRef(false);
   const [dismissedMap, setDismissedMap] = useState<Record<string, number>>(() => {
     try {
       return JSON.parse(localStorage.getItem('cm_dismissed_notifications') || '{}');
@@ -65,24 +71,65 @@ export const useAppNotifications = ({
   };
 
   const [notifications, setNotifications] = useState<InAppNotification[]>([]);
+  useEffect(() => {
+    notificationsRef.current = notifications;
+  }, [notifications]);
 
-  const addNotification = (notif: Omit<InAppNotification, 'id' | 'createdAt'>) => {
+  const buildFingerprint = (notif: Pick<InAppNotification, 'title' | 'message' | 'item_type' | 'item_id'>) =>
+    [notif.item_type || 'none', notif.item_id || 'none', notif.title, notif.message].join('::');
+
+  const flushQueue = useCallback(() => {
+    if (isQueueRunning.current) return;
+    isQueueRunning.current = true;
+
+    const step = () => {
+      const next = queueRef.current.shift();
+      if (!next) {
+        isQueueRunning.current = false;
+        return;
+      }
+
+      const fingerprint = buildFingerprint(next);
+      const existsInState = notificationsRef.current.some(
+        (n) => buildFingerprint(n) === fingerprint
+      );
+
+      if (!existsInState) {
+        const createdAt = Date.now();
+        setNotifications((prev) => [
+          {
+            ...next,
+            id: `${createdAt}-${Math.random().toString(36).slice(2, 9)}`,
+            createdAt,
+          },
+          ...prev,
+        ].slice(0, MAX_VISIBLE_NOTIFICATIONS));
+        playNotificationSound();
+      }
+
+      queueTimer.current = setTimeout(step, 650);
+    };
+
+    step();
+  }, []);
+
+  const addNotification = useCallback((notif: Omit<InAppNotification, 'id' | 'createdAt'>) => {
     if (isDismissed(notif.item_type, notif.item_id)) return;
+    const fingerprint = buildFingerprint(notif);
 
-    setNotifications(prev => {
-      // Evita duplicatas exatas recentes (mesmo titulo e mensagem)
-      const isDuplicate = prev.some(n => n.title === notif.title && n.message === notif.message && (Date.now() - n.createdAt < 60000));
-      if (isDuplicate) return prev;
-      
-      return [{
-        ...notif,
-        id: `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
-        createdAt: Date.now()
-      }, ...prev];
+    const duplicateInState = notificationsRef.current.some((n) => {
+      return buildFingerprint(n) === fingerprint && Date.now() - n.createdAt < 12 * 60 * 60 * 1000;
     });
-  };
+    if (duplicateInState) return;
 
-  const removeNotification = (id: string) => {
+    const duplicateInQueue = queueRef.current.some((n) => buildFingerprint(n) === fingerprint);
+    if (duplicateInQueue) return;
+
+    queueRef.current.push(notif);
+    flushQueue();
+  }, [dismissedMap, flushQueue]);
+
+  const removeNotification = useCallback((id: string) => {
     setNotifications(prev => {
       const target = prev.find(n => n.id === id);
       if (target?.item_type && target?.item_id) {
@@ -93,7 +140,7 @@ export const useAppNotifications = ({
       }
       return prev.filter(n => n.id !== id);
     });
-  };
+  }, [dismissedMap]);
 
   const resetNotifiedCaches = () => {
     notifiedDueLoans.current = new Set();
@@ -361,6 +408,14 @@ export const useAppNotifications = ({
       if (checkTimer.current) clearInterval(checkTimer.current);
     };
   }, [activeUser, disabled, loans.length]);
+
+  useEffect(() => {
+    return () => {
+      if (queueTimer.current) {
+        clearTimeout(queueTimer.current);
+      }
+    };
+  }, []);
 
   return { manualCheck: runScan, notifications, removeNotification, addNotification };
 };

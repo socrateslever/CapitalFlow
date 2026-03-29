@@ -38,6 +38,84 @@ const finalizeInvite = async (id: string, status: 'ACCEPTED' | 'EXPIRED') => {
   return await supabase.from('team_members').update({ invite_status: status }).eq('id', id);
 };
 
+const wait = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
+
+const ensureProfileWriteSession = async (
+  email: string,
+  password: string,
+  attempts = 6,
+  delayMs = 500
+) => {
+  const normalizedEmail = email.trim().toLowerCase();
+  let signInTried = false;
+
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const { data, error } = await supabase.auth.getSession();
+    if (error) throw error;
+
+    const sessionEmail = data.session?.user?.email?.toLowerCase();
+    if (data.session?.user?.id && sessionEmail === normalizedEmail) {
+      return true;
+    }
+
+    if (!signInTried && attempt >= 1) {
+      signInTried = true;
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: normalizedEmail,
+        password,
+      });
+
+      const message = signInError?.message?.toLowerCase?.() || '';
+      const canIgnore =
+        !signInError ||
+        message.includes('email not confirmed') ||
+        message.includes('invalid login credentials');
+
+      if (!canIgnore) {
+        throw signInError;
+      }
+    }
+
+    await wait(delayMs);
+  }
+
+  return false;
+};
+
+const waitForProfileRow = async (profileId: string, attempts = 8, delayMs = 700) => {
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const { data, error } = await supabase
+      .from('perfis')
+      .select('id')
+      .eq('id', profileId)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (data?.id) return true;
+
+    await wait(delayMs);
+  }
+
+  return false;
+};
+
+const updateExistingProfileRow = async (profileId: string, payload: Record<string, any>) => {
+  const profileExists = await waitForProfileRow(profileId);
+  if (!profileExists) {
+    return false;
+  }
+
+  const { data, error } = await supabase
+    .from('perfis')
+    .update(payload)
+    .eq('id', profileId)
+    .select('id')
+    .maybeSingle();
+
+  if (error) throw error;
+  return !!data?.id;
+};
+
 /**
  * 2. CAMADA DE LÓGICA (HOOKS)
  */
@@ -161,11 +239,13 @@ const useMemberActivation = (
 
       if (!authUid) throw new Error('Falha crítica ao obter identificador de segurança.');
 
-      // 3) Cria ou Atualiza Perfil vinculado ao Auth UID
-      // Usamos .upsert para evitar erros de Conflict 409 se o Trigger do banco disparar primeiro
-      const { error: profileError } = await supabase.from('perfis').upsert({
-        id: authUid,
-        user_id: authUid,
+      // 3) Aguarda a sessao autenticar e atualiza o perfil criado pelo trigger do banco
+      const hasSessionForProfileWrite = await ensureProfileWriteSession(email, authPass);
+      if (!hasSessionForProfileWrite) {
+        throw new Error('A conta foi criada, mas a sessao segura ainda nao foi liberada. Confirme o e-mail ou faca login novamente para concluir a ativacao.');
+      }
+
+      const profileUpdated = await updateExistingProfileRow(authUid, {
         supervisor_id: inviteData.teams?.owner_profile_id,
         owner_profile_id: inviteData.teams?.owner_profile_id,
         nome_operador: form.name.trim().split(' ')[0],
@@ -179,11 +259,12 @@ const useMemberActivation = (
 
         document: cleanDoc,
         phone: cleanPhone,
-        access_level: 1,
-        created_at: new Date().toISOString()
-      }, { onConflict: 'id' });
+        access_level: 1
+      });
 
-      if (profileError) throw profileError;
+      if (!profileUpdated) {
+        throw new Error('O perfil ainda esta sendo preparado pelo sistema. Aguarde alguns segundos e tente novamente.');
+      }
 
       await finalizeInvite(inviteData.id, 'ACCEPTED');
       localStorage.removeItem('cm_invite_token');
@@ -225,23 +306,25 @@ const useCreateProfile = (setLoginUser: any, setIsCreatingProfile: any, showToas
       if (authError) throw authError;
       if (!authData.user) throw new Error('Erro ao gerar credenciais.');
 
-      const { error } = await supabase.from('perfis').upsert([
-        {
-          id: authData.user.id,
-          user_id: authData.user.id,
-          owner_profile_id: authData.user.id,
-          nome_operador: form.name,
-          usuario_email: form.email.trim().toLowerCase(),
-          email: form.email.trim().toLowerCase(),
-          nome_empresa: form.businessName,
-          senha_acesso: form.password.trim(),
-          recovery_phrase: form.recoveryPhrase,
-          access_level: 1,
-          created_at: new Date().toISOString()
-        }
-      ], { onConflict: 'id' });
+      const email = form.email.trim().toLowerCase();
+      const hasSessionForProfileWrite = await ensureProfileWriteSession(email, form.password.trim());
 
-      if (error) throw error;
+      if (hasSessionForProfileWrite) {
+        const profileUpdated = await updateExistingProfileRow(authData.user.id, {
+          owner_profile_id: authData.user.id,
+          nome_operador: form.name.trim(),
+          usuario_email: email,
+          email,
+          nome_empresa: form.businessName.trim(),
+          senha_acesso: form.password.trim(),
+          recovery_phrase: form.recoveryPhrase.trim(),
+          access_level: 1
+        });
+
+        if (!profileUpdated) {
+          throw new Error('Conta criada no Auth, mas o perfil ainda nao foi provisionado. Tente novamente em instantes.');
+        }
+      }
 
       showToast('Conta criada! Verifique seu e-mail.', 'success');
       setIsCreatingProfile(false);

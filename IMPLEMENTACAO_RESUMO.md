@@ -1195,3 +1195,133 @@ Nenhum nesta etapa.
 
 Somente o fluxo funcional do resgate e a logica do filtro `Arquivados` foram alterados.
 Nenhuma mudanca visual foi aplicada.
+
+---
+## 2026-03-29 - Reorganizacao do sino de notificacoes
+
+### Objetivo
+
+Corrigir a experiencia do sino de notificacoes, removendo duplicacoes visuais, restaurando o gesto de deslizar para apagar e evitando rajada de som/entrada simultanea de alertas.
+
+### Arquivos alterados
+
+1. `hooks/useAppNotifications.ts`
+   - Implementada fila interna para inserir notificacoes em sequencia, em vez de despejar varias de uma vez.
+   - Melhorada a deduplicacao entre notificacoes ja visiveis e notificacoes ainda na fila.
+   - Mantido o fluxo existente de leitura e descarte.
+
+2. `layout/HeaderBar.tsx`
+   - Refeito o painel visual das notificacoes do sino.
+   - Removido o botao de simulacao que poluia a interface.
+   - Removida a duplicacao visual de acoes de remover.
+   - Restaurado o gesto de deslizar para a esquerda para apagar da visualizacao.
+   - Cards de notificacao ficaram mais limpos, amigaveis e previsiveis.
+
+3. `utils/notificationSound.ts`
+   - Adicionado throttle compartilhado para impedir disparo sonoro em rajada.
+   - Reuso de `AudioContext` para evitar instancias excessivas.
+
+4. `IMPLEMENTACAO_RESUMO.md`
+   - Registro desta frente de correcao.
+
+### Arquivos criados
+
+Nenhum nesta etapa.
+
+### Motivo tecnico
+
+- As notificacoes eram adicionadas diretamente no estado e podiam aparecer todas ao mesmo tempo.
+- O som podia disparar repetidamente em intervalo muito curto.
+- O dropdown tinha acao visual duplicada e um botao de teste exposto ao usuario final.
+- O gesto de deslizar existia de forma confusa e visualmente poluida.
+
+### Validacao executada
+
+1. `npx tsc -b --pretty false`
+   - resultado: OK
+
+### Confirmacao de escopo
+
+Somente o sistema do sino de notificacoes foi alterado nesta etapa.
+Nenhuma outra tela ou fluxo fora desse escopo foi modificado intencionalmente.
+
+---
+## 2026-03-29 - Correcao do RLS em `perfis` no fluxo de autenticacao
+
+### Objetivo
+
+Eliminar o erro `new row violates row-level security policy for table "perfis"` durante criacao/ativacao de conta, sem afrouxar as politicas do banco.
+
+### Arquivos alterados
+
+1. `features/auth/AuthScreen.tsx`
+   - Removido o uso direto de `upsert` em `perfis` logo apos o `signUp`.
+   - Adicionadas rotinas para aguardar a sessao autenticada e a linha criada pelo trigger do banco.
+   - O frontend agora atualiza a linha ja provisionada em `perfis`, em vez de tentar inserir novamente.
+   - O fluxo de ativacao de membro ganhou mensagens mais claras quando a sessao segura ainda nao esta pronta.
+
+2. `IMPLEMENTACAO_RESUMO.md`
+   - Registro desta correcao.
+
+### Arquivos criados
+
+Nenhum nesta etapa.
+
+### Motivo tecnico
+
+- O banco ja possui trigger para criar a linha em `public.perfis` quando nasce um usuario em `auth.users`.
+- O frontend estava tentando fazer `upsert` imediatamente em seguida.
+- Quando a sessao autenticada ainda nao estava disponivel no cliente, o `INSERT` do `upsert` batia no RLS da tabela `perfis`.
+- A correcao passa a respeitar o modelo real do banco: trigger cria, frontend apenas atualiza.
+
+### Validacao executada
+
+1. `npx tsc -b --pretty false`
+   - resultado: OK
+
+### Confirmacao de escopo
+
+Somente o fluxo de autenticacao em `features/auth/AuthScreen.tsx` foi alterado nesta etapa.
+Nenhuma politica SQL, notificacao, layout ou regra financeira foi modificada.
+
+---
+## 2026-03-29 - Refinamento visual do painel do sino
+
+### Objetivo
+
+Deixar o painel de notificacoes mais compacto, com mais personalidade visual e com rolagem interna real, evitando crescimento indefinido do dropdown.
+
+### Arquivos alterados
+
+1. `layout/HeaderBar.tsx`
+   - Painel do sino ficou mais estreito e menos pesado visualmente.
+   - Cabecalho ganhou identidade visual ligada a cor principal do perfil.
+   - Cards de notificacao foram compactados para reduzir altura e excesso de massa.
+   - A area central do painel agora funciona como bloco flex com `overflow-y`, mantendo rolagem interna em vez de expandir indefinidamente.
+
+2. `hooks/useAppNotifications.ts`
+   - Adicionado limite de seguranca para a lista visivel de notificacoes, evitando crescimento sem controle em memoria e interface.
+
+3. `IMPLEMENTACAO_RESUMO.md`
+   - Registro desta melhoria.
+
+### Arquivos criados
+
+Nenhum nesta etapa.
+
+### Motivo tecnico
+
+- O dropdown estava largo e com cards altos demais.
+- A sensacao visual era de painel pesado e sem hierarquia.
+- Com varias notificacoes, a experiencia degradava porque a lista seguia crescendo demais.
+- A nova versao usa altura maxima, rolagem interna real e composicao mais enxuta.
+
+### Validacao executada
+
+1. `npx tsc -b --pretty false`
+   - resultado: OK
+
+### Confirmacao de escopo
+
+Somente o painel do sino e a lista local de notificacoes foram alterados nesta etapa.
+Nenhuma regra de autenticacao, financeiro ou outras telas foi modificada.
