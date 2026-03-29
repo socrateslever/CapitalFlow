@@ -45,10 +45,30 @@ export const useAppNotifications = ({
   const notifiedDueLoans = useRef<Set<string>>(new Set());
   const notifiedUnsignedLegal = useRef<Set<string>>(new Set());
   const lastUserId = useRef<string | null>(null);
+  const [dismissedMap, setDismissedMap] = useState<Record<string, number>>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('cm_dismissed_notifications') || '{}');
+    } catch {
+      return {};
+    }
+  });
+
+  const isDismissed = (type?: string, id?: string) => {
+    if (!type || !id) return false;
+    const key = `${type}_${id}`;
+    const dismissedAt = dismissedMap[key];
+    if (!dismissedAt) return false;
+    
+    const now = Date.now();
+    const twelveHours = 12 * 60 * 60 * 1000;
+    return (now - dismissedAt) < twelveHours;
+  };
 
   const [notifications, setNotifications] = useState<InAppNotification[]>([]);
 
   const addNotification = (notif: Omit<InAppNotification, 'id' | 'createdAt'>) => {
+    if (isDismissed(notif.item_type, notif.item_id)) return;
+
     setNotifications(prev => {
       // Evita duplicatas exatas recentes (mesmo titulo e mensagem)
       const isDuplicate = prev.some(n => n.title === notif.title && n.message === notif.message && (Date.now() - n.createdAt < 60000));
@@ -63,7 +83,16 @@ export const useAppNotifications = ({
   };
 
   const removeNotification = (id: string) => {
-    setNotifications(prev => prev.filter(n => n.id !== id));
+    setNotifications(prev => {
+      const target = prev.find(n => n.id === id);
+      if (target?.item_type && target?.item_id) {
+        const key = `${target.item_type}_${target.item_id}`;
+        const newMap = { ...dismissedMap, [key]: Date.now() };
+        setDismissedMap(newMap);
+        localStorage.setItem('cm_dismissed_notifications', JSON.stringify(newMap));
+      }
+      return prev.filter(n => n.id !== id);
+    });
   };
 
   const resetNotifiedCaches = () => {
@@ -299,6 +328,8 @@ export const useAppNotifications = ({
 
       // Alerta apenas se cair abaixo de 50 reais (Extrema urgencia de caixa)
       if (balance < 50 && balance > -1000) {
+        if (isDismissed('carteira', source.id)) return;
+
         // Adiciona notificação in-app persistente
         setNotifications(prev => {
             const exists = prev.some(n => n.title === 'Saldo Crítico' && n.message.includes(source.name));

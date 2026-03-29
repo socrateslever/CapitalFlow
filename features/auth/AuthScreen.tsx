@@ -225,7 +225,7 @@ const useCreateProfile = (setLoginUser: any, setIsCreatingProfile: any, showToas
       if (authError) throw authError;
       if (!authData.user) throw new Error('Erro ao gerar credenciais.');
 
-      const { error } = await supabase.from('perfis').insert([
+      const { error } = await supabase.from('perfis').upsert([
         {
           id: authData.user.id,
           user_id: authData.user.id,
@@ -239,7 +239,7 @@ const useCreateProfile = (setLoginUser: any, setIsCreatingProfile: any, showToas
           access_level: 1,
           created_at: new Date().toISOString()
         }
-      ]);
+      ], { onConflict: 'id' });
 
       if (error) throw error;
 

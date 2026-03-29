@@ -1,4 +1,3 @@
-
 import React, { useRef, useState, useEffect } from 'react';
 import { TrendingUp, Plus, Loader2, LayoutGrid, Eye, EyeOff, Users, LayoutDashboard, Wallet, Briefcase, PiggyBank, Calendar, Calculator, ArrowRightLeft, MessageCircle, Megaphone, User, Menu, Gavel, Bell, X, Trash2, MessageSquare } from 'lucide-react';
 import { UserProfile } from '../types';
@@ -21,10 +20,11 @@ interface HeaderBarProps {
   removeNotification?: (id: string) => void;
   onNavigate?: (path: string) => void;
   onOpenSupport?: () => void;
+  addNotification?: (notif: Omit<InAppNotification, 'id' | 'createdAt'>) => void;
 }
 
 export const HeaderBar: React.FC<HeaderBarProps> = ({ 
-  activeTab, setActiveTab, activeUser, isLoadingData, onOpenNav, onNewLoan, isStealthMode, toggleStealthMode, navOrder, notifications = [], removeNotification, onNavigate, onOpenSupport
+  activeTab, setActiveTab, activeUser, isLoadingData, onOpenNav, onNewLoan, isStealthMode, toggleStealthMode, navOrder, notifications = [], removeNotification, onNavigate, onOpenSupport, addNotification
 }) => {
   const scrollRef = useRef<HTMLElement>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -144,6 +144,111 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
     }
   };
 
+  const renderNotificationList = (isMobile = false) => (
+    <motion.div 
+      initial={{ opacity: 0, y: 10, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: 10, scale: 0.95 }}
+      className={`absolute ${isMobile ? 'fixed inset-x-4 top-20' : 'top-full right-0 mt-4'} w-full sm:w-[400px] bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-[2rem] shadow-[0_25px_80px_-15px_rgba(0,0,0,0.6)] overflow-hidden z-[1100] ring-1 ring-white/10`}
+    >
+      <div className="p-6 border-b border-white/5 flex items-center justify-between bg-gradient-to-r from-slate-900/50 to-transparent">
+        <div>
+            <h3 className="text-sm font-black uppercase tracking-[0.2em] text-white flex items-center gap-2">
+            <Bell size={16} className="text-blue-500 animate-pulse"/> Notificações
+            </h3>
+            <div className="flex items-center gap-2 mt-1">
+              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Sua atividade recente</p>
+              <button 
+                onClick={() => addNotification?.({
+                  title: "Teste de Interface ✨",
+                  message: "Este é um alerta de teste. Arraste-o para o lado para testar o gesto de remoção!",
+                  type: 'info',
+                  isPersistent: true
+                })}
+                className="text-[8px] bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded font-black uppercase hover:bg-blue-500 hover:text-white transition-all"
+              >
+                Simular Alerta
+              </button>
+            </div>
+        </div>
+        <button onClick={() => setShowNotifications(false)} className="w-8 h-8 rounded-full bg-slate-800/50 flex items-center justify-center text-slate-500 hover:text-white transition-all hover:rotate-90">
+          <X size={16}/>
+        </button>
+      </div>
+      <div className="max-h-[480px] overflow-y-auto custom-scrollbar">
+        {notifications.length === 0 ? (
+          <div className="p-12 text-center">
+            <div className="w-16 h-16 bg-slate-800/30 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-800/50">
+              <Bell size={24} className="text-slate-700"/>
+            </div>
+            <p className="text-sm text-slate-400 font-bold tracking-tight">Tudo em dia!</p>
+            <p className="text-xs text-slate-600 mt-1">Você não tem novas notificações.</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-white/5">
+            {notifications.map((notif) => (
+              <div key={notif.id} className="relative overflow-hidden group">
+                {/* Action Indicators (Background) */}
+                <div className="absolute inset-0 bg-rose-500/10 flex items-center justify-between px-8">
+                  <div className="flex flex-col items-center gap-1">
+                    <Trash2 size={20} className="text-rose-500" />
+                    <span className="text-[8px] font-black uppercase text-rose-500 tracking-widest">Remover</span>
+                  </div>
+                  <div className="flex flex-col items-center gap-1">
+                    <Trash2 size={20} className="text-rose-500" />
+                    <span className="text-[8px] font-black uppercase text-rose-500 tracking-widest">Remover</span>
+                  </div>
+                </div>
+
+                <motion.div 
+                  drag="x"
+                  dragConstraints={{ left: -120, right: 120 }}
+                  dragElastic={0.2}
+                  onDragEnd={(_, info) => {
+                    if (Math.abs(info.offset.x) > 100) {
+                      removeNotification?.(notif.id);
+                    }
+                  }}
+                  whileDrag={{ scale: 1.02, zIndex: 10 }}
+                  onClick={() => handleNotificationClick(notif)}
+                  className="relative bg-slate-900/40 p-6 hover:bg-white/5 transition-all cursor-pointer border-l-4 border-transparent hover:border-blue-500/40"
+                >
+                  <div className="flex gap-5">
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-xl group-hover:scale-110 transition-transform duration-500 ${getNotificationBg(notif.type)}`}>
+                      <Bell size={20} className={getNotificationColor(notif.type)}/>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between items-start mb-1.5">
+                        <p className="text-[13px] font-black text-white leading-tight group-hover:text-blue-400 transition-colors tracking-tight">
+                          {notif.title}
+                        </p>
+                        <span className="text-[10px] text-slate-500 font-bold whitespace-nowrap ml-3">
+                          {new Date(notif.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-400 leading-relaxed line-clamp-2 font-medium">
+                        {notif.message}
+                      </p>
+                      {notif.isPersistent && (
+                        <div className="mt-3 flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.6)] animate-pulse" />
+                          <span className="text-[9px] font-black uppercase text-rose-500 tracking-[0.1em]">Ação Crítica Necessária</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </motion.div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+      <div className="p-4 bg-slate-800/30 border-t border-white/5 text-center">
+         <p className="text-[9px] text-slate-500 font-black uppercase tracking-[0.2em]">Arraste para remover da visualização</p>
+      </div>
+    </motion.div>
+  );
+
   return (
     <header id="app-header" className="sticky top-0 z-[1000] bg-slate-950/90 backdrop-blur-md border-b border-slate-800 pt-safe">
       <div id="header-container" className="max-w-[1920px] mx-auto px-2 sm:px-6 min-h-[4rem] sm:min-h-[5rem] py-2 sm:py-3 flex flex-wrap items-center justify-between gap-y-2 sm:gap-y-3">
@@ -217,60 +322,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                    </button>
                    
                    <AnimatePresence>
-                     {showNotifications && (
-                       <motion.div 
-                         initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                         animate={{ opacity: 1, y: 0, scale: 1 }}
-                         exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                         className="absolute top-full right-0 mt-2 w-80 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden z-[1100]"
-                       >
-                         <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/50">
-                           <h3 className="text-xs font-black uppercase tracking-widest text-white flex items-center gap-2">
-                             <Bell size={14} className="text-blue-500"/> Notificações
-                           </h3>
-                           <button onClick={() => setShowNotifications(false)} className="text-slate-500 hover:text-white transition-colors">
-                             <X size={16}/>
-                           </button>
-                         </div>
-                         <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
-                           {notifications.length === 0 ? (
-                             <div className="p-8 text-center">
-                               <div className="w-12 h-12 bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-3">
-                                 <Bell size={20} className="text-slate-600"/>
-                               </div>
-                               <p className="text-xs text-slate-500 font-medium">Nenhuma notificação no momento</p>
-                             </div>
-                           ) : (
-                             <div className="divide-y divide-slate-800/50">
-                               {notifications.map((notif) => (
-                                 <div 
-                                   key={notif.id} 
-                                   onClick={() => handleNotificationClick(notif)}
-                                   className="p-4 hover:bg-slate-800/50 transition-all cursor-pointer group relative"
-                                 >
-                                   <div className="flex gap-3">
-                                     <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${getNotificationBg(notif.type)}`}>
-                                       <Bell size={14} className={getNotificationColor(notif.type)}/>
-                                     </div>
-                                     <div className="flex-1 min-w-0">
-                                       <p className="text-[11px] font-bold text-white leading-tight mb-1 group-hover:text-blue-400 transition-colors">
-                                         {notif.title}
-                                       </p>
-                                       <p className="text-[10px] text-slate-400 leading-relaxed line-clamp-2">
-                                         {notif.message}
-                                       </p>
-                                       <p className="text-[8px] text-slate-500 mt-2 font-black uppercase tracking-tighter">
-                                         {new Date(notif.createdAt).toLocaleTimeString()}
-                                       </p>
-                                     </div>
-                                   </div>
-                                 </div>
-                               ))}
-                             </div>
-                           )}
-                         </div>
-                       </motion.div>
-                     )}
+                     {showNotifications && renderNotificationList(false)}
                    </AnimatePresence>
                  </div>
 
@@ -325,7 +377,9 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                         </span>
                       )}
                    </button>
-                   {/* ... mobile notifications list ... */}
+                   <AnimatePresence>
+                     {showNotifications && renderNotificationList(true)}
+                   </AnimatePresence>
                  </div>
                  <button id="btn-stealth-mobile" onClick={toggleStealthMode} className={`w-9 h-9 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl flex items-center justify-center border transition-all ${isStealthMode ? 'bg-gradient-to-br from-indigo-600 to-violet-700 border-indigo-500 text-white shadow-lg shadow-indigo-500/20' : 'bg-slate-900 border-slate-700 text-slate-400'}`}>
                     {isStealthMode ? <EyeOff size={16}/> : <Eye size={16}/>}

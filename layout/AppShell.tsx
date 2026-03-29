@@ -31,11 +31,12 @@ interface AppShellProps {
   notifications?: InAppNotification[];
   removeNotification?: (id: string) => void;
   onNavigate?: (path: string) => void;
+  addNotification?: (notif: Omit<InAppNotification, 'id' | 'createdAt'>) => void;
   activeModal?: any;
 }
 
 export const AppShell: React.FC<AppShellProps> = ({ 
-  children, toast, clearToast, activeTab, setActiveTab, activeUser, isLoadingData, onOpenNav, onNewLoan, isStealthMode, toggleStealthMode, onOpenSupport, navOrder, onGoBack, isInHub, title, subtitle, notifications, removeNotification, onNavigate, activeModal
+  children, toast, clearToast, activeTab, setActiveTab, activeUser, isLoadingData, onOpenNav, onNewLoan, isStealthMode, toggleStealthMode, onOpenSupport, navOrder, onGoBack, isInHub, title, subtitle, notifications, removeNotification, onNavigate, activeModal, addNotification
 }) => {
   const [unreadSupport, setUnreadSupport] = useState(0);
   const [showWelcome, setShowWelcome] = useState(true);
@@ -151,6 +152,7 @@ export const AppShell: React.FC<AppShellProps> = ({
         removeNotification={removeNotification}
         onNavigate={onNavigate}
         onOpenSupport={onOpenSupport}
+        addNotification={addNotification}
       />
 
       <main className="flex-1 overflow-y-auto touch-pan-y overflow-x-hidden pb-28 md:pb-12">

@@ -185,7 +185,7 @@ export const App: React.FC = () => {
   const { loanCtrl, clientCtrl, sourceCtrl, profileCtrl, paymentCtrl, fileCtrl, aiCtrl, adminCtrl } =
     controllers;
 
-  const { notifications, removeNotification } = useAppNotifications({
+  const { notifications, removeNotification, addNotification } = useAppNotifications({
     loans,
     sources,
     activeUser,
@@ -312,6 +312,7 @@ export const App: React.FC = () => {
             subtitle={activeTab === 'CONTRACT_DETAILS' ? loans.find(l => l.id === ui.selectedLoanId)?.debtorPhone : undefined}
             notifications={notifications}
             removeNotification={removeNotification}
+            addNotification={addNotification}
             onNavigate={navigate}
             activeModal={ui.activeModal}
           >
