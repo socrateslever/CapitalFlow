@@ -3,6 +3,7 @@ import React from 'react';
 import { useModal } from '../../contexts/ModalContext';
 import { LoanModalsWrapper } from './wrappers/LoanModalsWrapper';
 import { SystemModalsWrapper } from './wrappers/SystemModalsWrapper';
+import { FinanceModals } from './ModalGroups';
 
 export const ModalHost: React.FC = () => {
   const { activeModal } = useModal();
@@ -12,6 +13,7 @@ export const ModalHost: React.FC = () => {
   return (
     <>
         <LoanModalsWrapper />
+        <FinanceModals />
         <SystemModalsWrapper />
     </>
   );

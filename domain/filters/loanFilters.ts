@@ -84,6 +84,9 @@ export const filterLoans = (
       case 'RENEGOCIADO':
         return classification === 'RENEGOCIADO';
 
+      case 'ARQUIVADOS':
+        return classification === 'ARQUIVADO';
+
       default:
         return false;
     }

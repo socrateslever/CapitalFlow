@@ -1073,3 +1073,125 @@ Conforme solicitado, segue a lista priorizada de pendências técnicas e funcion
 3.  O sistema permanece operacional e as mudanças visam apenas a qualidade da entrega jurídica.
 
 ---
+## 2026-03-28 - Correcao efetiva do modal de resgate do Caixa Livre
+
+### Objetivo
+
+Restaurar o funcionamento real do botao `Resgatar` do card `Caixa Livre`, sem alterar a aparencia do sistema.
+
+### Arquivos alterados
+
+1. `components/modals/ModalHost.tsx`
+   - Inclusao do `FinanceModalsWrapper` no host principal de modais.
+   - Isso volta a renderizar os modais financeiros do sistema, incluindo `WITHDRAW`, `SOURCE_FORM`, `ADD_FUNDS` e `PAYMENT`.
+
+2. `IMPLEMENTACAO_RESUMO.md`
+   - Registro objetivo desta frente de correcao.
+
+### Arquivos criados
+
+Nenhum nesta etapa.
+
+### Motivo tecnico da falha
+
+O botao `Resgatar` disparava corretamente `ui.openModal('WITHDRAW')`, mas o `ModalHost` nao montava o `FinanceModalsWrapper`.
+Com isso, o estado do modal era atualizado, porem nenhum componente renderizava o modal financeiro correspondente.
+
+### Risco e impacto
+
+- Mudanca contida ao host de modais.
+- Nenhuma alteracao visual foi aplicada.
+- Nenhuma regra de negocio do resgate foi alterada nesta etapa.
+- A correcao restaura a integracao real entre clique do botao, estado de modal e renderizacao do fluxo de resgate.
+
+### Validacao executada
+
+1. Confirmado no codigo que `DashboardContainer` chama `ui.openModal('WITHDRAW')`.
+2. Confirmado no codigo que `FinanceModalsWrapper` renderiza `FinanceModals`.
+3. Confirmado no codigo que `FinanceModals` contem o modal `WITHDRAW`.
+4. Corrigido o `ModalHost` para montar o wrapper financeiro.
+
+### Confirmacao de escopo
+
+Somente o host de modais foi corrigido para restaurar o fluxo do resgate.
+Nada fora do escopo funcional do modal financeiro foi alterado intencionalmente.
+
+---
+## 2026-03-28 - Ajuste direto no host de modais financeiros
+
+### Objetivo
+
+Eliminar a dependencia intermediaria de wrapper para garantir a montagem direta dos modais financeiros no host principal.
+
+### Arquivos alterados
+
+1. `components/modals/ModalHost.tsx`
+   - Substituida a montagem do `FinanceModalsWrapper` pela montagem direta de `FinanceModals`.
+   - O objetivo foi remover uma camada intermediaria e garantir que o modal `WITHDRAW` seja decidido diretamente pelo proprio grupo de modais financeiros.
+
+2. `IMPLEMENTACAO_RESUMO.md`
+   - Registro desta correcao adicional.
+
+### Arquivos criados
+
+Nenhum nesta etapa.
+
+### Motivo tecnico
+
+Como o botao continuou sem funcionamento perceptivel, o host principal foi simplificado para montar diretamente `FinanceModals`, reduzindo o risco de falha por encadeamento de wrappers.
+
+### Risco e impacto
+
+- Escopo contido ao host de modais.
+- Nenhuma alteracao visual.
+- Nenhuma mudanca de regra de negocio.
+- A decisao de renderizar `WITHDRAW` passa a ocorrer diretamente no grupo financeiro.
+
+### Confirmacao de escopo
+
+Nenhum arquivo fora do fluxo do host de modais financeiros foi alterado nesta etapa.
+
+---
+## 2026-03-28 - Correcao funcional do resgate e do filtro Arquivados
+
+### Objetivo
+
+Corrigir o fluxo funcional do botao `Resgatar` e restaurar o filtro `Arquivados` no dashboard.
+
+### Arquivos alterados
+
+1. `hooks/controllers/useSourceController.ts`
+   - Corrigido o tratamento do destino do resgate.
+   - Valor vazio agora e interpretado como saque externo, em vez de ser tratado como fonte invalida.
+
+2. `domain/filters/loanFilters.ts`
+   - Adicionado o caso `ARQUIVADOS` na logica principal de filtro.
+
+3. `utils/loanFilterResolver.ts`
+   - Contratos arquivados agora recebem classificacao explicita `ARQUIVADO`.
+
+4. `types.ts`
+   - Incluido `ARQUIVADOS` no tipo `LoanStatusFilter`.
+
+5. `IMPLEMENTACAO_RESUMO.md`
+   - Registro desta frente de correcao.
+
+### Arquivos criados
+
+Nenhum nesta etapa.
+
+### Motivo tecnico
+
+- O resgate podia falhar mesmo com o modal aberto porque o campo de destino iniciava vazio e era tratado como `sourceId` invalido.
+- O filtro `Arquivados` existia na interface, mas nao tinha implementacao na regra real.
+- Alem disso, contratos arquivados eram classificados como `IGNORAR`, impedindo a exibicao na aba correspondente.
+
+### Validacao executada
+
+1. `npx tsc -b --pretty false`
+   - resultado: OK
+
+### Confirmacao de escopo
+
+Somente o fluxo funcional do resgate e a logica do filtro `Arquivados` foram alterados.
+Nenhuma mudanca visual foi aplicada.

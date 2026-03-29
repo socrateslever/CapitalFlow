@@ -63,18 +63,18 @@ export const ClientGroupCard: React.FC<ClientGroupCardProps> = ({ group, passThr
     };
 
     return (
-        <div className={`responsive-card relative overflow-hidden transition-all duration-300 rounded-xl sm:rounded-2xl border border-slate-800 bg-slate-900 hover:border-slate-700 hover:shadow-xl hover:shadow-slate-900/50 group cursor-pointer border-l-4 ${borderLeftColor} ${isExpanded ? 'ring-2 ring-blue-500/20' : ''} mb-4`}>
+        <div className={`responsive-card relative overflow-hidden transition-all duration-300 rounded-xl sm:rounded-2xl border border-slate-800 bg-slate-900 hover:border-slate-700 hover:shadow-xl hover:shadow-slate-900/50 group cursor-pointer border-l-4 ${borderLeftColor} ${isExpanded ? 'ring-2 ring-blue-500/20' : ''}`}>
             <div 
-                className="flex flex-col gap-4 relative"
+                className="flex flex-col min-h-[6rem] justify-between relative"
                 onClick={handleCardClick}
             >
                 <div className="flex justify-between items-start gap-3 flex-wrap sm:flex-nowrap">
-                    <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
                         <div className="relative shrink-0">
                             {group.avatarUrl ? (
-                                <img src={group.avatarUrl} className="w-12 h-12 rounded-xl object-cover border-2 border-slate-700" alt={group.clientName} />
+                                <img src={group.avatarUrl} className="w-11 h-11 rounded-xl object-cover border border-slate-700/50" alt={group.clientName} />
                             ) : (
-                                <div className="w-12 h-12 rounded-xl bg-slate-800 flex items-center justify-center border-2 border-slate-700">
+                                <div className="w-11 h-11 rounded-xl bg-slate-800 flex items-center justify-center border border-slate-700/50 shadow-sm">
                                     {icon}
                                 </div>
                             )}
@@ -89,11 +89,13 @@ export const ClientGroupCard: React.FC<ClientGroupCardProps> = ({ group, passThr
                             </button>
                         </div>
                         
-                        <div className="min-w-0">
-                            <h3 className="client-name text-white font-black uppercase leading-tight text-[11px] sm:text-xs whitespace-nowrap truncate max-w-[150px] sm:max-w-[200px]">
-                                {formatShortName(group.clientName)}
-                            </h3>
-                            <div className="flex items-center gap-1.5 mt-1">
+                        <div className="min-w-0 flex flex-col">
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <h3 className="client-name font-black text-white uppercase leading-tight tracking-tight truncate max-w-[140px] sm:max-w-[220px]">
+                                    {formatShortName(group.clientName)}
+                                </h3>
+                            </div>
+                            <div className="flex items-center gap-1.5 mt-0.5">
                                 <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded border bg-slate-950/50 ${statusTextColor} border-current opacity-80 whitespace-nowrap`}>
                                     {statusText}
                                 </span>
@@ -114,14 +116,18 @@ export const ClientGroupCard: React.FC<ClientGroupCardProps> = ({ group, passThr
                     )}
                 </div>
 
-                <div className="flex items-center justify-between pt-2 border-t border-slate-800/50 mt-1">
-                    <div className="flex items-center gap-2 text-slate-400">
-                        <Wallet size={14}/>
-                        <span className="text-[8px] font-black uppercase tracking-widest">Dívida Total</span>
+                <div className="flex items-end justify-between pt-2 border-t border-slate-800/30 mt-1">
+                    <div className="flex flex-col gap-0.5">
+                        <div className="flex items-center gap-1.5 text-slate-500">
+                            <Wallet size={10} className="opacity-50" />
+                            <span className="text-[8px] font-black uppercase tracking-[0.15em]">Dívida Total</span>
+                        </div>
                     </div>
-                    <span className={`text-lg font-black ${group.totalDebt < 0.1 ? 'text-emerald-500' : 'text-white'}`}>
-                        {formatMoney(group.totalDebt, isStealthMode)}
-                    </span>
+                    <div className="flex flex-col items-end">
+                        <span className={`text-lg sm:text-xl font-black tracking-tighter transition-all ${group.totalDebt < 0.1 ? 'text-emerald-400' : 'text-white'}`}>
+                            {formatMoney(group.totalDebt, isStealthMode)}
+                        </span>
+                    </div>
                 </div>
             </div>
 

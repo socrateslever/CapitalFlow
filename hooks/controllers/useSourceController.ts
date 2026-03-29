@@ -14,6 +14,49 @@ export const useSourceController = (
   showToast: (msg: string, type?: 'success' | 'error') => void
 ) => {
   const getOwnerId = (u: UserProfile) => safeUUID(u.supervisor_id) || safeUUID(u.id);
+  const isMissingRpcError = (error: any, fnName: string) => {
+    const message = String(error?.message || '').toLowerCase();
+    const details = String(error?.details || '').toLowerCase();
+    const hint = String(error?.hint || '').toLowerCase();
+    const fn = fnName.toLowerCase();
+
+    return (
+      error?.code === 'PGRST202' ||
+      message.includes(fn) ||
+      details.includes(fn) ||
+      hint.includes(fn)
+    );
+  };
+
+  const withdrawProfitCaixaLivreLegacy = async (
+    amount: number,
+    caixaLivreSource: CapitalSource,
+    targetSourceId: string | null
+  ) => {
+    const currentSourceBalance = Number(caixaLivreSource.balance) || 0;
+
+    const { error: withdrawError } = await supabase
+      .from('fontes')
+      .update({ balance: currentSourceBalance - amount })
+      .eq('id', caixaLivreSource.id);
+
+    if (withdrawError) throw withdrawError;
+
+    if (!targetSourceId) return;
+
+    const targetSource = sources.find((s) => s.id === targetSourceId);
+    if (!targetSource) {
+      throw new Error('Fonte de destino não encontrada para concluir o resgate.');
+    }
+
+    const currentTargetBalance = Number(targetSource.balance) || 0;
+    const { error: depositError } = await supabase
+      .from('fontes')
+      .update({ balance: currentTargetBalance + amount })
+      .eq('id', targetSourceId);
+
+    if (depositError) throw depositError;
+  };
 
   const handleSaveSource = async () => {
     if (!activeUser) return;
@@ -174,7 +217,11 @@ export const useSourceController = (
       return;
     }
 
-    const targetSourceId = ui.withdrawSourceId === 'EXTERNAL_WITHDRAWAL' ? null : ui.withdrawSourceId;
+    const normalizedWithdrawTarget = String(ui.withdrawSourceId || '').trim();
+    const targetSourceId =
+      !normalizedWithdrawTarget || normalizedWithdrawTarget === 'EXTERNAL_WITHDRAWAL'
+        ? null
+        : normalizedWithdrawTarget;
 
     if (targetSourceId && !sources.some((s) => s.id === targetSourceId)) {
       showToast('Selecione uma fonte válida para receber o resgate.', 'error');
@@ -207,21 +254,18 @@ export const useSourceController = (
 
     try {
       if (caixaLivreSource) {
-        // Se o lucro está em uma fonte "Caixa Livre", fazemos uma transferência ou saque direto da fonte
-        if (targetSourceId) {
-          // Transferência entre fontes
-          const { error: err1 } = await supabase.from('fontes').update({ balance: caixaLivreSource.balance - amount }).eq('id', caixaLivreSource.id);
-          if (err1) throw err1;
-          
-          const targetSource = sources.find(s => s.id === targetSourceId);
-          if (targetSource) {
-            const { error: err2 } = await supabase.from('fontes').update({ balance: targetSource.balance + amount }).eq('id', targetSourceId);
-            if (err2) throw err2;
+        const { error } = await supabase.rpc('withdraw_profit_caixa_livre', {
+          p_amount: amount,
+          p_profile_id: safeUUID(ownerId),
+          p_source_id: safeUUID(caixaLivreSource.id),
+          p_target_source_id: targetSourceId ? safeUUID(targetSourceId) : null,
+        });
+        if (error) {
+          if (isMissingRpcError(error, 'withdraw_profit_caixa_livre')) {
+            await withdrawProfitCaixaLivreLegacy(amount, caixaLivreSource, targetSourceId);
+          } else {
+            throw error;
           }
-        } else {
-          // Saque externo (apenas subtrai da fonte Caixa Livre)
-          const { error } = await supabase.from('fontes').update({ balance: caixaLivreSource.balance - amount }).eq('id', caixaLivreSource.id);
-          if (error) throw error;
         }
       } else {
         // Fluxo antigo: lucro está em perfis.interest_balance

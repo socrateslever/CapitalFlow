@@ -89,9 +89,9 @@ const useInviteFlow = (showToast: any) => {
 const useMemberActivation = (
   inviteData: any,
   submitTeamLogin: any,
-  showToast: any,
-  setIsProcessing: any
+  showToast: any
 ) => {
+  const [isProcessing, setIsProcessing] = useState(false);
   const [form, setForm] = useState({ name: '', document: '', phone: '', email: '', accessCode: '' });
   const [errorText, setErrorText] = useState('');
 
@@ -114,39 +114,46 @@ const useMemberActivation = (
       // ✅ PIN real do app (4 dígitos)
       const pin = onlyDigits(form.accessCode.trim());
 
-      // ✅ Senha do Supabase Auth (mínimo 6 caracteres)
-      const authPass = pin.length < 6 ? pin.padEnd(6, '0') : pin;
+      // ✅ Senha do Supabase Auth (mínimo 6 caracteres) - Regra Unificada
+      const pinToAuthPassword = (p: string) => p.length < 6 ? p.padEnd(6, '0') : p;
+      const authPass = pinToAuthPassword(pin);
 
       let authUid = '';
 
-      // 1) Tenta logar (caso já exista no Auth)
-      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+      // Otimização: Tentar SignUp primeiro (esperado para novos membros)
+      // Se já existir, o erro "User already registered" nos guiará para o SignIn
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
         email,
-        password: authPass
+        password: authPass,
+        options: { data: { full_name: form.name } }
       });
 
-      if (!signInError && signInData.user) {
-        authUid = signInData.user.id;
-      } else {
-        // 2) Se não logou, tenta criar no Auth
-        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-          email,
-          password: authPass,
-          options: { data: { full_name: form.name } }
-        });
+      if (signUpError) {
+        // Se já registrado, tentamos o login para capturar o UID
+        if (signUpError.message?.toLowerCase().includes('already registered') || signUpError.status === 422) {
+          const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+            email,
+            password: authPass
+          });
 
-        if (signUpError) {
-          if (signUpError.message?.includes('already registered')) {
-            throw new Error(
-              'Usuário já existe no sistema de autenticação. Use o mesmo código de acesso usado no cadastro ou contate o gestor.'
-            );
+          if (signInError) {
+            if (signInError.message?.toLowerCase().includes('rate limit')) {
+              throw new Error('Muitas tentativas. Por favor, aguarde alguns minutos antes de tentar novamente.');
+            }
+            throw new Error('Este e-mail já está em uso com outra senha ou o limite de segurança foi atingido.');
+          }
+          authUid = signInData.user?.id || '';
+        } else {
+          if (signUpError.message?.toLowerCase().includes('rate limit')) {
+            throw new Error('Muitas tentativas. Por favor, aguarde alguns minutos.');
           }
           throw signUpError;
         }
-
-        if (!signUpData.user) throw new Error('Falha ao criar credenciais de segurança.');
-        authUid = signUpData.user.id;
+      } else {
+        authUid = signUpData.user?.id || '';
       }
+
+      if (!authUid) throw new Error('Falha crítica ao obter identificador de segurança.');
 
       // 3) Cria Perfil vinculado ao Auth UID
       const { error: profileError } = await supabase.from('perfis').insert({
@@ -187,7 +194,7 @@ const useMemberActivation = (
     }
   };
 
-  return { form, setForm, handleActivate, errorText };
+  return { form, setForm, handleActivate, errorText, isProcessing };
 };
 
 const useCreateProfile = (setLoginUser: any, setIsCreatingProfile: any, showToast: any, setIsProcessing: any) => {
@@ -489,11 +496,10 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   const [showPassword, setShowPassword] = useState(false);
 
   const { inviteToken, inviteData, isProcessing: isProcessingInvite, cancelInvite } = useInviteFlow(showToast);
-  const { form: memberForm, setForm: setMemberForm, handleActivate: handleActivateMember, errorText } = useMemberActivation(
+  const { form: memberForm, setForm: setMemberForm, handleActivate: handleActivateMember, errorText, isProcessing: isActivatingMember } = useMemberActivation(
     inviteData,
     submitTeamLogin,
-    showToast,
-    (_l: any) => {}
+    showToast
   );
   const { form: createForm, setForm: setCreateForm, handleCreate: handleCreateProfile } = useCreateProfile(
     setLoginUser,
@@ -576,7 +582,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
             form={memberForm}
             setForm={setMemberForm}
             onConfirm={handleActivateMember}
-            isLoading={isProcessingInvite}
+            isLoading={isActivatingMember || isProcessingInvite}
             errorText={errorText}
             onCancel={cancelInvite}
           />

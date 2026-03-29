@@ -426,6 +426,7 @@ export type LoanStatusFilter =
   | 'QUITADO'
   | 'PAGOS'
   | 'RENEGOCIADO'
+  | 'ARQUIVADOS'
   | 'ATRASO_CRITICO';
 
 export type AccessLevel = 'ADMIN' | 'OPERATOR' | 'VIEWER';

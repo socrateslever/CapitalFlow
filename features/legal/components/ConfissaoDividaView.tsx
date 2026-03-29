@@ -579,7 +579,7 @@ export const ConfissaoDividaView: React.FC<ConfissaoDividaViewProps> = ({ loans,
                                     <div className="w-6 h-6 bg-emerald-500 rounded-lg flex items-center justify-center text-white font-black text-[10px] shadow-lg shadow-emerald-900/10">05</div>
                                     <h3 className="text-[10px] font-black text-white uppercase tracking-widest">Canais de Assinatura</h3>
                                 </div>
-                                <div className="grid grid-cols-1 gap-3">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                     <SigningLinkCard 
                                         title="Devedor" 
                                         subtitle={selectedLoan?.debtorName}
@@ -594,6 +594,20 @@ export const ConfissaoDividaView: React.FC<ConfissaoDividaViewProps> = ({ loans,
                                         url={signingLinks.creditor} 
                                         onCopy={() => copyToClipboard(signingLinks.creditor, 'Credor')}
                                         color="emerald"
+                                    />
+                                    <SigningLinkCard 
+                                        title="Testemunha 01" 
+                                        subtitle={availableWitnesses.find(w => w.id === selectedW1)?.name || 'Testemunha 1'}
+                                        url={signingLinks.witness1} 
+                                        onCopy={() => copyToClipboard(signingLinks.witness1, 'Testemunha 1')}
+                                        color="slate"
+                                    />
+                                    <SigningLinkCard 
+                                        title="Testemunha 02" 
+                                        subtitle={availableWitnesses.find(w => w.id === selectedW2)?.name || 'Testemunha 2'}
+                                        url={signingLinks.witness2} 
+                                        onCopy={() => copyToClipboard(signingLinks.witness2, 'Testemunha 2')}
+                                        color="slate"
                                     />
                                 </div>
                             </section>
@@ -696,32 +710,34 @@ export const ConfissaoDividaView: React.FC<ConfissaoDividaViewProps> = ({ loans,
                                                         </span>
                                                     </div>
 
-                                                    <div className="flex items-center gap-2">
-                                                        <button
-                                                            onClick={() => copyToClipboard(link, `Documento ${index + 1}`)}
-                                                            disabled={!token}
-                                                            className="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed text-white text-[9px] font-black uppercase tracking-widest flex items-center gap-2 transition-all"
-                                                        >
-                                                            <Copy size={12} />
-                                                            Copiar
-                                                        </button>
-                                                        <button
-                                                            onClick={() => token && window.open(link, '_blank')}
-                                                            disabled={!token}
-                                                            className="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed text-white text-[9px] font-black uppercase tracking-widest flex items-center gap-2 transition-all"
-                                                        >
-                                                            <ExternalLink size={12} />
-                                                            Abrir
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleDeleteDocument(doc)}
-                                                            disabled={!canDelete || activeDocumentActionId === doc.id}
-                                                            className="ml-auto px-3 py-2 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 disabled:opacity-30 disabled:cursor-not-allowed text-rose-400 text-[9px] font-black uppercase tracking-widest flex items-center gap-2 transition-all border border-rose-500/20"
-                                                            title={canDelete ? 'Apagar registro antigo' : 'Documentos com assinatura nao podem ser apagados'}
-                                                        >
-                                                            {activeDocumentActionId === doc.id ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
-                                                            Apagar
-                                                        </button>
+                                                    <div className="flex flex-col gap-3">
+                                                        {token && (
+                                                            <div className="flex flex-wrap gap-2 pb-2 mb-1 border-b border-slate-800/50">
+                                                                <button onClick={() => copyToClipboard(buildSigningLinks(token).debtor, 'Cliente')} disabled={!token} className="text-[8px] font-black uppercase tracking-widest text-indigo-400 hover:text-indigo-300 transition-colors flex items-center gap-1 disabled:opacity-30"><Copy size={10}/> Cliente</button>
+                                                                <button onClick={() => copyToClipboard(buildSigningLinks(token).creditor, 'Operador')} disabled={!token} className="text-[8px] font-black uppercase tracking-widest text-emerald-400 hover:text-emerald-300 transition-colors flex items-center gap-1 disabled:opacity-30"><Copy size={10}/> Operador</button>
+                                                                <button onClick={() => copyToClipboard(buildSigningLinks(token).witness1, 'Testemunha 1')} disabled={!token} className="text-[8px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-300 transition-colors flex items-center gap-1 disabled:opacity-30"><Copy size={10}/> T1</button>
+                                                                <button onClick={() => copyToClipboard(buildSigningLinks(token).witness2, 'Testemunha 2')} disabled={!token} className="text-[8px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-300 transition-colors flex items-center gap-1 disabled:opacity-30"><Copy size={10}/> T2</button>
+                                                            </div>
+                                                        )}
+                                                        <div className="flex items-center gap-2">
+                                                            <button
+                                                                onClick={() => token && window.open(link, '_blank')}
+                                                                disabled={!token}
+                                                                className="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed text-white text-[9px] font-black uppercase tracking-widest flex items-center gap-2 transition-all"
+                                                            >
+                                                                <ExternalLink size={12} />
+                                                                Visualizar Doc
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleDeleteDocument(doc)}
+                                                                disabled={!canDelete || activeDocumentActionId === doc.id}
+                                                                className="ml-auto px-3 py-2 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 disabled:opacity-30 disabled:cursor-not-allowed text-rose-400 text-[9px] font-black uppercase tracking-widest flex items-center gap-2 transition-all border border-rose-500/20"
+                                                                title={canDelete ? 'Apagar registro antigo' : 'Documentos com assinatura nao podem ser apagados'}
+                                                            >
+                                                                {activeDocumentActionId === doc.id ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
+                                                                Apagar
+                                                            </button>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             );

@@ -97,7 +97,7 @@ export const Header: React.FC<HeaderProps> = ({
   }
 
   return (
-    <div className="w-full flex flex-col gap-3">
+    <div className="w-full flex flex-col min-h-[6rem] justify-between">
       {/* Top Section: Avatar/Icon + Name + Badges */}
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-3 min-w-0 flex-1">
