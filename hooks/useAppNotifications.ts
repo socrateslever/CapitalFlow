@@ -331,19 +331,13 @@ export const useAppNotifications = ({
         if (isDismissed('carteira', source.id)) return;
 
         // Adiciona notificação in-app persistente
-        setNotifications(prev => {
-            const exists = prev.some(n => n.title === 'Saldo Crítico' && n.message.includes(source.name));
-            if (exists) return prev;
-            return [{
-                id: `low-balance-${source.id}`,
-                title: 'Saldo Crítico',
-                message: `A fonte de capital "${source.name}" está com saldo muito baixo (${balance.toFixed(2)}).`,
-                type: 'error',
-                isPersistent: true,
-                createdAt: Date.now(),
-                item_type: 'carteira',
-                item_id: source.id
-            }, ...prev];
+        addNotification({
+          title: 'Saldo Crítico',
+          message: `A fonte de capital "${source.name}" está com saldo muito baixo (${balance.toFixed(2)}).`,
+          type: 'error',
+          isPersistent: true,
+          item_type: 'carteira',
+          item_id: source.id
         });
       }
     });
@@ -368,5 +362,5 @@ export const useAppNotifications = ({
     };
   }, [activeUser, disabled, loans.length]);
 
-  return { manualCheck: runScan, notifications, removeNotification };
+  return { manualCheck: runScan, notifications, removeNotification, addNotification };
 };
