@@ -60,7 +60,12 @@ export const NavHub: React.FC<NavHubProps> = ({ onClose, onNavigate, userLevel, 
     };
 
     // Ensure DASHBOARD is always the first item in the menu
-    const displayOrder = ['DASHBOARD' as AppTab, ...hubOrder.filter(tab => tab !== 'DASHBOARD')];
+    // Desativado temporariamente: TEAM e ACQUISITION
+    const displayOrder = ['DASHBOARD' as AppTab, ...hubOrder.filter(tab => 
+        tab !== 'DASHBOARD' && 
+        tab !== 'TEAM' && 
+        tab !== 'ACQUISITION'
+    )];
 
     return (
         <div 

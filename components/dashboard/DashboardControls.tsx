@@ -109,7 +109,7 @@ export const DashboardControls: React.FC<DashboardControlsProps> = ({
                     onMouseMove={handleMouseMove}
                     className={`flex-1 overflow-x-auto no-scrollbar select-none ${isDragging ? 'cursor-grabbing' : 'cursor-grab active:cursor-grabbing'}`}
                 >
-                    <div className="flex gap-2 p-1.5 bg-slate-900/50 border border-slate-800/80 rounded-2xl w-max">
+                    <div className="flex gap-2 p-1.5 bg-slate-900/50 border border-slate-800/80 rounded-xl w-max">
                         {[
                           { id: 'TODOS', icon: <Users size={14} className="text-blue-400" /> },
                           { id: 'ATRASADOS', icon: <AlertTriangle size={14} className="text-amber-400" /> },
@@ -127,7 +127,7 @@ export const DashboardControls: React.FC<DashboardControlsProps> = ({
                                         setStatusFilter(filter.id as any);
                                     }
                                 }} 
-                                className={`p-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all border flex items-center justify-center gap-2 pointer-events-auto min-w-[42px] ${statusFilter === filter.id ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white border-blue-500 shadow-lg shadow-blue-600/20' : 'bg-slate-900 border-slate-800 text-slate-500 hover:text-slate-300 hover:border-slate-700'}`}
+                                className={`p-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all border flex items-center justify-center gap-2 pointer-events-auto min-w-[42px] ${statusFilter === filter.id ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white border-blue-500 shadow-lg shadow-blue-600/20' : 'bg-slate-900 border-slate-800 text-slate-500 hover:text-slate-300 hover:border-slate-700'}`}
                                 title={translateFilter(filter.id)}
                             >
                                 {filter.icon}

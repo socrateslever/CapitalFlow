@@ -11,8 +11,8 @@ export const AIBalanceInsight: React.FC<{ loans: Loan[], sources: CapitalSource[
         setIsAnalyzing(true);
         try {
             const caixaLivreSource = sources.find(s => {
-                const n = (s.name || '').toLowerCase();
-                return n.includes('caixa livre') || n === 'lucro' || n.includes('lucro');
+                const n = (s.name || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "");
+                return n.includes('caixa livre') || n.includes('lucro') || n.includes('disponivel') || n.includes('balance');
             });
             const interestBalance = caixaLivreSource ? Number(caixaLivreSource.balance) : (Number(activeUser?.interestBalance) || 0);
 

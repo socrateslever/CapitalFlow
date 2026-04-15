@@ -3,16 +3,22 @@ import { Loan } from '../../types';
 import { loanEngine } from '../loanEngine';
 import { resolveLoanVisualClassification } from '../../utils/loanFilterResolver';
 
-export const buildDashboardStats = (loans: Loan[], sources: any[] = []) => {
+export const buildDashboardStats = (loans: Loan[], sources: any[] = [], activeUser: any = null) => {
+  // 🚀 FILTRO DE SEGURANÇA: Remove contratos de "teste" da contagem e cálculos
+  const filteredLoans = loans.filter(l => {
+    const name = (l.debtorName || '').toLowerCase();
+    return !name.includes('teste');
+  });
+
   // Classifica todos os empréstimos uma única vez
-  const classifiedLoans = loans.map(l => ({
+  const classifiedLoans = filteredLoans.map(l => ({
     loan: l,
     classification: resolveLoanVisualClassification(l)
   }));
 
   // Filtra empréstimos operacionais (Ativos)
   const activeLoans = classifiedLoans.filter(c => 
-    ['EM_DIA', 'ATRASADO', 'CRITICO'].includes(c.classification)
+    ['EM_DIA', 'ATRASADO', 'CRITICO', 'RENEGOCIADO'].includes(c.classification)
   );
   
   // 1. CAPITAL NA RUA & CONTAGEM
@@ -24,32 +30,46 @@ export const buildDashboardStats = (loans: Loan[], sources: any[] = []) => {
 
   const activeCount = activeLoans.length;
 
-  // 2. TOTAIS GERAIS (inclui todos para o histórico)
-  const totalReceived = loans.reduce((acc, l) => {
-      const receivedFromLedger = (l.ledger || []).reduce((sum, t) => {
+  // 2. TOTAIS GERAIS (Lucro Realizado)
+  const totalProfitRealized = filteredLoans.reduce((acc, l) => {
+      const profitFromLedger = (l.ledger || []).reduce((sum, t) => {
           if (!String(t.type || '').includes('PAYMENT')) return sum;
-          return sum + (Number(t.amount) || 0);
+          // Soma juros e multas pagos
+          return sum + (Number(t.interestDelta || 0) + Number(t.lateFeeDelta || 0));
       }, 0);
-      return acc + receivedFromLedger;
+      return acc + profitFromLedger;
   }, 0);
 
-  // 3. LUCRO PROJETADO (apenas de ativos)
-  const expectedProfit = activeLoans.reduce((acc, c) => {
+  // 3. LUCRO A RECEBER (apenas de ativos)
+  const remainingProfit = activeLoans.reduce((acc, c) => {
       const balance = loanEngine.computeRemainingBalance(c.loan);
       const loanInterest = balance.interestRemaining;
       const loanLateFee = balance.lateFeeRemaining;
       return acc + loanInterest + loanLateFee;
   }, 0);
 
-  const roi = totalLent > 0 ? (expectedProfit / totalLent) * 100 : 0;
+  // Lucro Projetado Total = O que já ganhou + O que vai ganhar
+  const totalProjectedProfit = totalProfitRealized + remainingProfit;
 
-  const interestBalance = Array.isArray(sources) ? sources.reduce((acc, s) => {
-      const n = (s.name || '').toLowerCase();
-      if (n.includes('caixa livre') || n === 'lucro' || n.includes('lucro')) {
-          return acc + (Number(s.balance) || 0);
-      }
-      return acc;
-  }, 0) : 0;
+  const roi = totalLent > 0 ? (totalProjectedProfit / totalLent) * 100 : 0;
+
+  // ✅ Unify "Caixa Livre" detection logic (matching useSourceController)
+  const normalize = (s: string) =>
+    String(s || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim();
+
+  const caixaLivreSources = Array.isArray(sources) ? sources.filter(s => {
+    const n = normalize(s.name || '');
+    return n.includes('caixa livre') || n.includes('lucro') || n.includes('disponivel') || n.includes('balance');
+  }) : [];
+
+  const interestBalanceFromSources = caixaLivreSources.reduce((acc, s) => acc + (Number(s.balance) || 0), 0);
+  
+  // ✅ Fallback to activeUser.interestBalance if no source is found, but prefer source balance if it exists
+  const interestBalance = interestBalanceFromSources + (Number(activeUser?.interestBalance) || 0);
   
   // Contagens para o gráfico de pizza
   const paidCount = classifiedLoans.filter(c => c.classification === 'QUITADO').length;
@@ -80,7 +100,7 @@ export const buildDashboardStats = (loans: Loan[], sources: any[] = []) => {
       monthlyDataMap[key] = { name: `${month.toString().padStart(2, '0')}/${year}`, Entradas: 0, Saidas: 0 };
   }
   
-  loans.forEach(l => {
+  filteredLoans.forEach(l => {
     (l.ledger || []).forEach(t => {
       if (!t.date || t.date.length < 7) return;
       const key = t.date.slice(0, 7);
@@ -88,7 +108,7 @@ export const buildDashboardStats = (loans: Loan[], sources: any[] = []) => {
       if (!monthlyDataMap[key]) return;
       
       if (key === currentMonthKey && t.type?.includes('PAYMENT')) {
-          receivedThisMonth += t.amount;
+          receivedThisMonth += (Number(t.interestDelta || 0) + Number(t.lateFeeDelta || 0));
       }
 
       if (t.type === 'LEND_MORE' || t.type === 'NEW_LOAN') {
@@ -109,9 +129,9 @@ export const buildDashboardStats = (loans: Loan[], sources: any[] = []) => {
   return { 
       totalLent, 
       activeCount,
-      totalReceived, 
+      totalReceived: totalProfitRealized, // Agora mostra Lucro Realizado
       receivedThisMonth,
-      expectedProfit, 
+      expectedProfit: totalProjectedProfit, // Agora mostra Lucro Total Projetado (Realizado + A Receber)
       roi,
       interestBalance, 
       pieData, 

@@ -210,7 +210,9 @@ export const useSourceController = (
       return n.includes('caixa livre') || n.includes('lucro') || n.includes('disponivel') || n.includes('balance');
     });
 
-    const availableBalance = caixaLivreSource ? Number(caixaLivreSource.balance) : (Number(activeUser.interestBalance) || 0);
+    const sourceBalance = Number(caixaLivreSource?.balance) || 0;
+    const profileBalance = Number(activeUser.interestBalance) || 0;
+    const availableBalance = sourceBalance + profileBalance;
 
     if (amount > availableBalance) {
       showToast('Saldo de lucro insuficiente.', 'error');
@@ -229,7 +231,7 @@ export const useSourceController = (
     }
 
     if (activeUser.id === 'DEMO') {
-      if (caixaLivreSource) {
+      if (caixaLivreSource && sourceBalance >= amount) {
         setSources(sources.map((s) => {
           if (s.id === caixaLivreSource.id) return { ...s, balance: s.balance - amount };
           if (targetSourceId && s.id === targetSourceId) return { ...s, balance: s.balance + amount };
@@ -253,7 +255,9 @@ export const useSourceController = (
     }
 
     try {
-      if (caixaLivreSource) {
+      const useSourceWithdrawal = caixaLivreSource && sourceBalance >= amount;
+
+      if (useSourceWithdrawal && caixaLivreSource) {
         const { error } = await supabase.rpc('withdraw_profit_caixa_livre', {
           p_amount: amount,
           p_profile_id: safeUUID(ownerId),
@@ -268,14 +272,24 @@ export const useSourceController = (
           }
         }
       } else {
-        // Fluxo antigo: lucro está em perfis.interest_balance
+        // Fluxo antigo ou fallback: lucro está em perfis.interest_balance
         const { error } = await supabase.rpc('profit_withdrawal_atomic', {
           p_amount: amount,
           p_profile_id: safeUUID(ownerId),
-          p_target_source_id: safeUUID(targetSourceId),
+          p_target_source_id: targetSourceId ? safeUUID(targetSourceId) : null,
         });
         if (error) throw error;
       }
+
+      // 🔥 REGISTRO DE SEGURANÇA: Garante que o resgate apareça no histórico de caixa
+      // para que o recálculo de balanço não "esqueça" esse saque no futuro.
+      await supabase.from('transacoes_caixa').insert([{
+        profile_id: ownerId,
+        tipo: 'WITHDRAWAL',
+        valor: amount,
+        descricao: `Resgate de Lucro${targetSourceId ? ' para fonte interna' : ' externo'}`,
+        data: new Date().toISOString()
+      }]);
 
       showToast('Resgate processado com sucesso!', 'success');
 

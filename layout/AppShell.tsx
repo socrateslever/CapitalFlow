@@ -116,28 +116,6 @@ export const AppShell: React.FC<AppShellProps> = ({
 
   return (
     <div className="h-screen w-full bg-slate-950 text-slate-100 font-sans selection:bg-blue-600/30 flex flex-col overflow-hidden relative">
-      <AnimatePresence>
-        {toast && (
-          <motion.div 
-            initial={{ y: -50, opacity: 0, rotateX: 90 }}
-            animate={{ y: 0, opacity: 1, rotateX: 0 }}
-            exit={{ x: 300, opacity: 0 }}
-            transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-            drag="x"
-            dragConstraints={{ left: 0, right: 0 }}
-            onDragEnd={(e, { offset, velocity }) => {
-              if (offset.x > 100 || offset.x < -100 || velocity.x > 500 || velocity.x < -500) {
-                clearToast?.();
-              }
-            }}
-            className={`fixed z-[var(--z-toast)] px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 left-4 right-4 top-4 md:left-auto md:right-4 md:w-auto cursor-grab active:cursor-grabbing ${toast.type === 'error' ? 'bg-rose-600 text-white' : toast.type === 'warning' ? 'bg-amber-500 text-black' : 'bg-emerald-600 text-white'}`}
-          >
-              {toast.type === 'error' ? <AlertCircle size={24}/> : toast.type === 'warning' ? <AlertTriangle size={24}/> : <CheckCircle2 size={24}/>}
-              <span className="font-bold text-sm leading-tight">{toast.msg}</span>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       <HeaderBar 
         activeTab={activeTab} 
         setActiveTab={setActiveTab} 

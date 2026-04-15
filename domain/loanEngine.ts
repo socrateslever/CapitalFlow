@@ -70,12 +70,15 @@ const engine = {
       if (useAgreement) {
         if (isAgreementInstallmentPaid(inst)) return false;
       } else {
+        const status = String(inst?.status || '').toUpperCase();
+        // Ignora parcelas que foram movidas para acordo ou canceladas
+        if (status === 'RENEGOCIADO' || status === 'CANCELADO') return false;
+
         const principalOpen = n(inst?.principal_remaining ?? inst?.principalRemaining);
         const interestOpen = n(inst?.interest_remaining ?? inst?.interestRemaining);
         const lateFeeOpen = n(inst?.late_fee_accrued ?? inst?.lateFeeAccrued);
         if (principalOpen + interestOpen + lateFeeOpen <= 0.05) return false;
 
-        const status = String(inst?.status || '').toUpperCase();
         if (status === 'PAID' || status === 'PAGO' || status === 'QUITADO') return false;
       }
 
@@ -173,12 +176,15 @@ export function isLegallyActionable(loan: Loan): boolean {
     if (useAgreement) {
       if (isAgreementInstallmentPaid(inst)) continue;
     } else {
+      const status = String(inst?.status || '').toUpperCase();
+      // Ignora parcelas que foram movidas para acordo ou canceladas
+      if (status === 'RENEGOCIADO' || status === 'CANCELADO') continue;
+
       const principalOpen = n(inst?.principal_remaining ?? inst?.principalRemaining);
       const interestOpen = n(inst?.interest_remaining ?? inst?.interestRemaining);
       const lateFeeOpen = n(inst?.late_fee_accrued ?? inst?.lateFeeAccrued);
       if (principalOpen + interestOpen + lateFeeOpen <= 0.05) continue;
 
-      const status = String(inst?.status || '').toUpperCase();
       if (status === 'PAID' || status === 'PAGO' || status === 'QUITADO') continue;
     }
 

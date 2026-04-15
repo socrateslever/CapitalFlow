@@ -180,6 +180,33 @@ export const useAuth = () => {
       setSavedProfiles(updated);
       localStorage.setItem('cm_saved_profiles', JSON.stringify(updated));
     } else if (mountedRef.current) {
+      // 🚨 AUTO-CRIAÇÃO DE EMERGÊNCIA: Se autenticou mas não tem perfil, cria um agora.
+      if (isDev) console.warn('[AUTH_BOOT] Perfil não encontrado. Iniciando criação de emergência...');
+      
+      try {
+        const newProfileId = crypto.randomUUID();
+        const { data: newProfile, error: createError } = await supabase.from('perfis').insert({
+          id: newProfileId,
+          user_id: user.id,
+          email: user.email,
+          usuario_email: user.email,
+          nome_exibicao: user.email?.split('@')[0] || 'Novo Gestor',
+          access_level: 'ADMIN',
+          created_at: new Date().toISOString()
+        }).select().single();
+
+        if (createError) throw createError;
+
+        if (newProfile && mountedRef.current) {
+          if (isDev) console.log('[AUTH_BOOT] Perfil de emergência criado com sucesso:', newProfile.id);
+          setActiveProfileId(newProfile.id);
+          localStorage.setItem('cm_session', JSON.stringify({ profileId: newProfile.id, ts: Date.now() }));
+          return;
+        }
+      } catch (err) {
+        if (isDev) console.error('[AUTH_BOOT] Falha na auto-criação de perfil:', err);
+      }
+
       if (isDev) console.error('[AUTH_BOOT] Falha na resolução do perfil: Identidade não encontrada ou aguardando Trigger.');
       setActiveProfileId(null);
     }
@@ -395,7 +422,10 @@ export const useAuth = () => {
         .maybeSingle();
 
       if (!profile) {
-        throw new Error('Perfil não encontrado para este usuário. Aguarde a ativação da conta.');
+        if (isDev) console.log('[AUTH] Perfil não encontrado no login direto, forçando boot para resolução...');
+        // Em vez de erro fatal, forçamos o boot que agora tem auto-criação
+        await boot(true);
+        return;
       }
 
       handleLoginSuccess(profile, showToast);

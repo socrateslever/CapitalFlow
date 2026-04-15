@@ -37,8 +37,8 @@ export const ProfitCard = ({ balance, onWithdraw, isStealthMode, variant = 'defa
             <div className={isCompact ? '' : 'mt-auto'}>
                 {isCompact ? (
                     <button 
-                        onClick={(e) => { e.stopPropagation(); onWithdraw(); }} 
-                        className="px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 shadow-lg shadow-emerald-900/40 active:scale-95"
+                        onClick={onWithdraw} 
+                        className="relative z-20 px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 shadow-lg shadow-emerald-900/40 active:scale-95"
                     >
                         Resgatar <ArrowRightLeft size={10} />
                     </button>
@@ -49,8 +49,8 @@ export const ProfitCard = ({ balance, onWithdraw, isStealthMode, variant = 'defa
                             <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Disponível</span>
                         </div>
                         <button 
-                            onClick={(e) => { e.stopPropagation(); onWithdraw(); }} 
-                            className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-full text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 shadow-lg shadow-emerald-900/40 active:scale-95"
+                            onClick={onWithdraw} 
+                            className="relative z-20 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-full text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 shadow-lg shadow-emerald-900/40 active:scale-95"
                         >
                             Resgatar <ArrowRightLeft size={12} />
                         </button>

@@ -39,24 +39,31 @@ export const resolveLoanVisualClassification = (loan: Loan): LoanVisualClassific
     !!loan.activeAgreement && ['ACTIVE', 'ATIVO'].includes(loan.activeAgreement.status);
 
   if (loan.status === LoanStatus.RENEGOCIADO || loan.status === LoanStatus.EM_ACORDO || hasActiveAgreement) {
+    // Se estiver em acordo, precisamos saber se o acordo em si está atrasado
+    const engineStatus = loanEngine.computeLoanStatus(loan);
+    if (engineStatus === 'OVERDUE') {
+      // Se o acordo estiver atrasado, verifica o nível do atraso
+      const schedule = loan.activeAgreement?.installments || [];
+      const maxAgreementDelay = Math.max(0, ...schedule.map(i => {
+        if (['PAID', 'PAGO'].includes(String(i.status || "").toUpperCase())) return 0;
+        return getDaysDiff(i.dueDate);
+      }));
+      return maxAgreementDelay >= 30 ? 'CRITICO' : 'ATRASADO';
+    }
     return 'RENEGOCIADO';
   }
 
-  // Atraso.
-  const maxDelay = Math.max(
-    0,
-    ...loan.installments.map((i) => {
-      if (i.status === LoanStatus.PAID) return 0;
-      return getDaysDiff(i.dueDate);
-    })
-  );
-
-  if (maxDelay >= 30) {
-    return 'CRITICO';
-  }
-
-  if (maxDelay > 0) {
-    return 'ATRASADO';
+  // Atraso para contratos normais
+  const engineStatus = loanEngine.computeLoanStatus(loan);
+  if (engineStatus === 'OVERDUE') {
+    const maxDelay = Math.max(
+      0,
+      ...loan.installments.map((i) => {
+        if (i.status === LoanStatus.PAID || i.status === LoanStatus.RENEGOCIADO) return 0;
+        return getDaysDiff(i.dueDate);
+      })
+    );
+    return maxDelay >= 30 ? 'CRITICO' : 'ATRASADO';
   }
 
   return 'EM_DIA';

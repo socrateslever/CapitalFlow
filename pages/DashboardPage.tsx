@@ -1,6 +1,6 @@
 
 import React, { useMemo } from 'react';
-import { BarChart3, Banknote, CheckCircle2, Briefcase, PieChart as PieIcon, TrendingUp, Users, Calendar, Percent } from 'lucide-react';
+import { BarChart3, Banknote, CheckCircle2, Briefcase, PieChart as PieIcon, TrendingUp, Users, Calendar, Percent, RefreshCw } from 'lucide-react';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
 import { Loan, CapitalSource, LedgerEntry, Agreement, AgreementInstallment, SortOption, UserProfile } from '../types';
 import { LoanCard } from '../components/cards/LoanCard';
@@ -56,6 +56,8 @@ interface DashboardPageProps {
   onReverseAgreementPayment: (loan: Loan, agreement: Agreement, inst: AgreementInstallment) => void;
   onNavigate: (path: string) => void;
   onRefresh: () => void;
+  ui: any;
+  loanCtrl: any;
 }
 
 export const DashboardPage: React.FC<DashboardPageProps> = ({
@@ -64,7 +66,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   searchTerm, setSearchTerm, selectedLoanId, setSelectedLoanId, onEdit, onMessage, onArchive, onRestore, 
   onDelete, onActivate, onNote, onPortalLink, onUploadPromissoria, onUploadDoc, onViewPromissoria, 
   onViewDoc, onReviewSignal, onOpenComprovante, onReverseTransaction, setWithdrawModal, showToast, 
-  isStealthMode, onRenegotiate, onNewAporte, onAgreementPayment, onReverseAgreementPayment, onNavigate, onRefresh
+  isStealthMode, onRenegotiate, onNewAporte, onAgreementPayment, onReverseAgreementPayment, onNavigate, onRefresh, ui, loanCtrl
 }) => {
   
   // Agrupa os empréstimos filtrados por cliente, respeitando a ordenação selecionada
@@ -83,11 +85,11 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="md:hidden bg-slate-900 p-1 rounded-2xl border border-slate-800 flex relative overflow-hidden">
-          <button onClick={() => setMobileDashboardTab('CONTRACTS')} className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2 ${mobileDashboardTab === 'CONTRACTS' ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-lg shadow-blue-600/30' : 'text-slate-500 hover:text-white'}`}>
+      <div className="md:hidden bg-slate-900 p-1 rounded-xl border border-slate-800 flex relative overflow-hidden">
+          <button onClick={() => setMobileDashboardTab('CONTRACTS')} className={`flex-1 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2 ${mobileDashboardTab === 'CONTRACTS' ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-lg shadow-blue-600/30' : 'text-slate-500 hover:text-white'}`}>
             <Briefcase size={14} /> Contratos
           </button>
-          <button onClick={() => setMobileDashboardTab('BALANCE')} className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2 ${mobileDashboardTab === 'BALANCE' ? 'bg-gradient-to-br from-emerald-600 to-emerald-700 text-white shadow-lg shadow-emerald-600/30' : 'text-slate-500 hover:text-white'}`}>
+          <button onClick={() => setMobileDashboardTab('BALANCE')} className={`flex-1 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2 ${mobileDashboardTab === 'BALANCE' ? 'bg-gradient-to-br from-emerald-600 to-emerald-700 text-white shadow-lg shadow-emerald-600/30' : 'text-slate-500 hover:text-white'}`}>
             <TrendingUp size={14} /> Balanço
           </button>
       </div>
@@ -137,6 +139,18 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
           </div>
 
           <aside className={`w-full lg:w-80 shrink-0 min-w-0 space-y-5 sm:space-y-6 ${mobileDashboardTab === 'CONTRACTS' ? 'hidden md:block' : ''}`}>
+              <div className="flex items-center justify-between px-2">
+                  <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Indicadores</h2>
+                  <button 
+                    onClick={loanCtrl.handleRecalculateAll}
+                    disabled={ui.isProcessingPayment}
+                    className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-slate-500 hover:text-blue-400 transition-colors disabled:opacity-50"
+                  >
+                    <RefreshCw size={10} className={ui.isProcessingPayment ? 'animate-spin' : ''} />
+                    Recalcular
+                  </button>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-3">
                   
                   {/* CARD CAPITAL NA RUA */}
@@ -163,7 +177,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                   {/* CARD RECEBIDO TOTAL */}
                   <StatCard 
                     variant="compact"
-                    title="Recebido (Total)" 
+                    title="Lucro Realizado" 
                     value={`R$ ${stats.totalReceived.toLocaleString()}`} 
                     rawValue={stats.totalReceived} 
                     icon={<CheckCircle2 size={16} />} 
@@ -173,16 +187,16 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                         <>
                             <div className="flex items-center gap-1.5 text-purple-400">
                                 <Calendar size={10}/>
-                                <span className="text-[9px] font-black uppercase">+ {formatMoney(stats.receivedThisMonth, isStealthMode)} Este Mês</span>
+                                <span className="text-[9px] font-black uppercase">+ {formatMoney(stats.receivedThisMonth, isStealthMode)} Lucro Mês</span>
                             </div>
                         </>
                     }
                   />
 
-                  {/* CARD LUCRO PROJETADO */}
+                  {/* CARD LUCRO TOTAL ESTIMADO */}
                   <StatCard 
                     variant="compact"
-                    title="Lucro Projetado" 
+                    title="Lucro Total (Est.)" 
                     value={`R$ ${stats.expectedProfit.toLocaleString()}`} 
                     rawValue={stats.expectedProfit} 
                     icon={<Briefcase size={16} />} 
@@ -201,7 +215,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                   />
 
                   {/* CARD LUCRO DISPONÍVEL */}
-                  <ProfitCard variant="compact" balance={stats.interestBalance} onWithdraw={() => setWithdrawModal(true)} isStealthMode={isStealthMode} />
+                  <ProfitCard variant="compact" balance={stats.interestBalance} onWithdraw={() => ui.openModal('WITHDRAW')} isStealthMode={isStealthMode} />
               </div>
               
               <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col items-center shadow-xl group hover:border-slate-700 transition-all">

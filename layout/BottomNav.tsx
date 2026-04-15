@@ -85,10 +85,13 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   };
 
   // Lista completa de abas para a barra de tarefas mobile
-  const mobileTabs = ['DASHBOARD', 'AGENDA', 'SIMULATOR', 'ACQUISITION', 'CLIENTS', 'SOURCES', 'LEGAL', 'SUPPORT'];
+  // Desativado temporariamente: ACQUISITION e TEAM
+  const mobileTabs = ['DASHBOARD', 'AGENDA', 'SIMULATOR', 'CLIENTS', 'SOURCES', 'LEGAL', 'SUPPORT'];
+  /* 
   if (!isStaff) {
       mobileTabs.push('TEAM');
   }
+  */
 
   return (
     <div 

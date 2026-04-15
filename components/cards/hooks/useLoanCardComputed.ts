@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { Loan, CapitalSource, LoanStatus } from '../../../types';
 import { parseDateOnlyUTC, addDaysUTC, getDaysDiff } from '../../../utils/dateHelpers';
 import { rebuildLoanStateFromLedger } from '../../../domain/finance/calculations';
+import { loanEngine } from '../../../domain/loanEngine';
 import { modalityRegistry } from '../../../domain/finance/modalities/registry';
 import { resolveLoanVisualClassification } from '../../../utils/loanFilterResolver';
 
@@ -27,15 +28,34 @@ export const useLoanCardComputed = (loanRaw: Loan, sources: CapitalSource[], isS
   const isDailyFree = loan.billingCycle === 'DAILY_FREE';
   const isFixedTerm = loan.billingCycle === 'DAILY_FIXED_TERM';
 
-  // O totalDebt agora usa os installments reconstruídos com os saldos abatidos
+  const agreement = loan.activeAgreement;
+  const hasActiveAgreement = isRenegotiated;
+
+  // O totalDebt agora usa o motor de cálculo que já respeita o acordo
   const totalDebt = useMemo(() => 
-    loan.installments.reduce((acc, i) => acc + (Number(i.principalRemaining) || 0) + (Number(i.interestRemaining) || 0), 0), 
-  [loan.installments]);
+    loanEngine.computeRemainingBalance(loan).totalRemaining, 
+  [loan]);
   
   const isZeroBalance = totalDebt < 0.10;
 
-  const agreement = loan.activeAgreement;
-  const hasActiveAgreement = isRenegotiated;
+  // Cálculo do próximo vencimento e dias de atraso (Respeitando Acordos)
+  const { nextDueDate, daysUntilDue } = useMemo(() => {
+    const sourceInstallments = (hasActiveAgreement && agreement?.installments) 
+      ? agreement.installments 
+      : loan.installments;
+
+    const nextInst = [...(sourceInstallments || [])]
+      .filter(i => {
+        const status = String(i.status || "").toUpperCase();
+        return status !== 'PAID' && status !== 'PAGO';
+      })
+      .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())[0];
+
+    const dueDate = nextInst?.dueDate || null;
+    const days = dueDate ? -getDaysDiff(dueDate) : 0;
+
+    return { nextDueDate: dueDate, daysUntilDue: days };
+  }, [loan.installments, agreement?.installments, hasActiveAgreement]);
 
   const fixedTermStats = useMemo(() => {
       if (!isFixedTerm) return null;
@@ -131,6 +151,8 @@ export const useLoanCardComputed = (loanRaw: Loan, sources: CapitalSource[], isS
     allLedger,
     orderedInstallments,
     activeAgreement: agreement,
-    classification
+    classification,
+    nextDueDate,
+    daysUntilDue
   };
 };

@@ -160,6 +160,10 @@ export const computeLoanRemainingBalance = (loan: Loan): RemainingBalance => {
   let lateFeeRemaining = 0;
 
   for (const inst of installments) {
+    // Ignora parcelas que foram movidas para acordo ou canceladas
+    const status = String(inst.status || "").toUpperCase();
+    if (status === 'RENEGOCIADO' || status === 'CANCELADO') continue;
+
     const debt = calculateTotalDue(loan, inst);
     principalRemaining += Math.max(0, Number(debt.principal || 0));
     interestRemaining += Math.max(0, Number(debt.interest || 0));

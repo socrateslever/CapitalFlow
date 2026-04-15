@@ -220,10 +220,18 @@ export const SimulatorPanel: React.FC<SimulatorPanelProps> = ({
         installments: calculation.installmentList.map((inst) => {
           const installmentPrincipal = calculation.principal / calculation.installmentList.length;
           const installmentInterest = calculation.interest / calculation.installmentList.length;
+          
+          let dueDateStr = '';
+          try {
+            dueDateStr = inst.dueDate.toISOString().split('T')[0];
+          } catch (e) {
+            dueDateStr = new Date().toISOString().split('T')[0];
+          }
+
           return {
             id: crypto.randomUUID(),
             number: inst.number,
-            dueDate: inst.dueDate.toISOString().split('T')[0],
+            dueDate: dueDateStr,
             amount: inst.value,
             scheduledPrincipal: installmentPrincipal,
             scheduledInterest: installmentInterest,

@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Loan, LoanStatus } from "../../../types";
 import { Modal } from "../../../components/ui/Modal";
-import { Calculator, CheckCircle2, AlertTriangle, Hash, DollarSign, Percent } from "lucide-react";
+import { Calculator, CheckCircle2, AlertTriangle, Hash, DollarSign, Percent, TrendingUp } from "lucide-react";
 import { simulateAgreement, CalculationMode } from "../logic/calculations";
 import { formatMoney } from "../../../utils/formatters";
 import { agreementService } from "../services/agreementService";
@@ -44,7 +44,11 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
         setTotalDebt(debt);
         const tomorrow = new Date();
         tomorrow.setDate(tomorrow.getDate() + 1);
-        setFirstDueDate(tomorrow.toISOString().split('T')[0]);
+        try {
+            setFirstDueDate(tomorrow.toISOString().split('T')[0]);
+        } catch (e) {
+            setFirstDueDate(new Date().toISOString().split('T')[0]);
+        }
     }, [loans]);
 
     const handleSimulate = () => {
@@ -156,7 +160,9 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
             }
 
             try {
-                const params = legalService.prepareDocumentParams({ ...commonAgreementData, id: agreementId, createdAt: new Date().toISOString(), status: 'ATIVO', installments: simulation.installments } as any, targetLoan, activeUser);
+                const agreementData = { ...commonAgreementData, id: agreementId, createdAt: new Date().toISOString(), status: 'ATIVO', installments: simulation.installments };
+                // ✅ FIX: Correct arguments order (loan, activeUser, agreement)
+                const params = legalService.prepareDocumentParams(targetLoan, activeUser, agreementData as any);
                 const ownerId = safeUUID((activeUser as any).supervisor_id) || safeUUID(activeUser.id);
                 if (!ownerId) throw new Error("ID do usuário inválido.");
                 const doc = await legalService.generateAndRegisterDocument(agreementId, params, ownerId);
@@ -224,7 +230,37 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
                                 <div>
                                     <p className="text-[10px] uppercase font-bold text-slate-500">Novo Total</p>
                                     <p className="text-2xl font-black text-white">{formatMoney(simulation.negotiatedTotal)}</p>
-                                    {simulation.calculationResult && simulation.calculationResult !== 'SAME' && <p className={`text-[10px] font-bold mt-1 ${simulation.calculationResult === 'DISCOUNT' ? 'text-emerald-400' : 'text-rose-400'}`}>{simulation.calculationResult === 'DISCOUNT' ? 'Desconto de ' : 'Acréscimo de '} {formatMoney(simulation.diffAmount)}</p>}
+                                    
+                                    {/* Exibição de Ganhos/Perdas */}
+                                    {simulation.calculationResult && (
+                                        <div className={`mt-2 p-2 rounded-lg border flex items-center gap-2 animate-in fade-in slide-in-from-left duration-300 ${
+                                            simulation.calculationResult === 'DISCOUNT' 
+                                                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' 
+                                                : simulation.calculationResult === 'INCREASE'
+                                                ? 'bg-rose-500/10 border-rose-500/30 text-rose-400'
+                                                : 'bg-slate-800 border-slate-700 text-slate-400'
+                                        }`}>
+                                            {simulation.calculationResult === 'DISCOUNT' ? (
+                                                <>
+                                                    <CheckCircle2 size={12} />
+                                                    <span className="text-[10px] font-black uppercase tracking-wider">
+                                                        Economia de {formatMoney(simulation.diffAmount)}
+                                                    </span>
+                                                </>
+                                            ) : simulation.calculationResult === 'INCREASE' ? (
+                                                <>
+                                                    <TrendingUp size={12} />
+                                                    <span className="text-[10px] font-black uppercase tracking-wider">
+                                                        Acréscimo de {formatMoney(simulation.diffAmount)}
+                                                    </span>
+                                                </>
+                                            ) : (
+                                                <span className="text-[10px] font-black uppercase tracking-wider">
+                                                    Valor mantido
+                                                </span>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="text-right">
                                     <p className="text-[10px] uppercase font-bold text-slate-500">Parcelas</p>

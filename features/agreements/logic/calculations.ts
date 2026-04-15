@@ -97,24 +97,27 @@ export const simulateAgreement = (params: AgreementSimulationParams): {
 
     } else if (calculationMode === 'BY_VALUE_AND_COUNT') {
         negotiatedTotal = finalInstallmentValue * finalInstallmentsCount;
-        
-        const originalPayable = totalDebt - downPayment;
-        const diff = negotiatedTotal - originalPayable;
-
-        if (Math.abs(diff) < 0.05) {
-            calculationResult = 'SAME';
-            diffAmount = 0;
-        } else if (diff < 0) {
-            calculationResult = 'DISCOUNT';
-            diffAmount = Math.abs(diff);
-        } else {
-            calculationResult = 'INCREASE';
-            diffAmount = diff;
-        }
     }
 
+    // ✅ Safety cap to prevent RangeError: Invalid time value or infinite loops
+    if (finalInstallmentsCount > 600) finalInstallmentsCount = 600;
     if (finalInstallmentsCount <= 0) finalInstallmentsCount = 1;
     if (!isFinite(finalInstallmentsCount)) finalInstallmentsCount = 1;
+
+    // Calculate Gain/Loss for all modes
+    const originalPayable = totalDebt - downPayment;
+    const diff = negotiatedTotal - originalPayable;
+
+    if (Math.abs(diff) < 0.05) {
+        calculationResult = 'SAME';
+        diffAmount = 0;
+    } else if (diff < 0) {
+        calculationResult = 'DISCOUNT';
+        diffAmount = Math.abs(diff);
+    } else {
+        calculationResult = 'INCREASE';
+        diffAmount = diff;
+    }
 
     const roundedInstallmentValue = isFinite(finalInstallmentValue) ? Math.round((finalInstallmentValue + Number.EPSILON) * 100) / 100 : 0;
     
@@ -137,11 +140,22 @@ export const simulateAgreement = (params: AgreementSimulationParams): {
               amount += diffCents;
           }
 
+          let dueDateStr = '';
+          try {
+              dueDateStr = currentDate.toISOString();
+          } catch (e) {
+              // Fallback to manual formatting if toISOString fails
+              const y = currentDate.getUTCFullYear();
+              const m = String(currentDate.getUTCMonth() + 1).padStart(2, '0');
+              const d = String(currentDate.getUTCDate()).padStart(2, '0');
+              dueDateStr = `${y}-${m}-${d}T00:00:00.000Z`;
+          }
+
           installments.push({
               id: generateUUID(),
               agreementId: 'temp',
               number: i,
-              dueDate: currentDate.toISOString(),
+              dueDate: dueDateStr,
               amount: isFinite(amount) ? parseFloat(amount.toFixed(2)) : 0,
               status: 'PENDING',
               paidAmount: 0

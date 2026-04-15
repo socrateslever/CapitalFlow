@@ -1397,3 +1397,309 @@ Nenhum nesta etapa.
 
 Somente os textos quebrados do `HeaderBar` foram alterados nesta etapa.
 Nenhuma estrutura de navegação ou regra funcional foi modificada.
+
+---
+## 2026-04-04 - Correção de UI no Header do LoanCard (Mobile)
+
+### Objetivo
+
+Corrigir o corte dos nomes dos devedores em contratos na versão mobile, garantindo que o nome completo seja visível e a tag de status seja posicionada no canto superior direito do card.
+
+### Arquivos alterados
+
+1. `/components/cards/LoanCardComposition/Header.tsx`
+   - Adicionado `relative` ao container principal para permitir posicionamento absoluto.
+   - Removida a classe `truncate` do `h3` do nome do devedor para permitir quebra de linha (apoiado pela utility `client-name` que possui `white-space: normal`).
+   - Adicionado `pr-20` ao container do nome em telas pequenas (`sm:pr-0`) para reservar espaço para o badge absoluto e evitar sobreposição.
+   - Movido o `Badge` para um container com posicionamento absoluto (`absolute top-0 right-0`).
+
+### Arquivos criados
+
+Nenhum nesta etapa.
+
+### Motivo técnico
+
+- A classe `truncate` forçava `white-space: nowrap`, cortando nomes longos mesmo com espaço disponível.
+- O posicionamento flex anterior fazia com que o badge competisse por espaço horizontal com o nome, agravando o corte em telas estreitas.
+- O posicionamento absoluto do badge no "canto superior direito" (conforme solicitado) libera o fluxo horizontal para o nome do devedor.
+
+### Validação executada
+
+1. `npx tsc -b --pretty false`
+   - resultado: OK
+
+### Confirmação de escopo
+
+Somente o layout do cabeçalho do `LoanCard` foi alterado para resolver o problema de UI reportado. Nenhuma regra de negócio ou fluxo de dados foi modificado.
+
+---
+
+## 2026-04-04 - Melhoria no Sistema de Notificações (Toasts)
+
+### Objetivo
+
+Melhorar a exibição das notificações em pilha (toasts), reduzindo seu tamanho, destaque excessivo e ocupação de espaço, especialmente na versão mobile, garantindo uma experiência menos intrusiva.
+
+### Arquivos alterados
+
+1. `/hooks/useToast.ts`
+   - Migração completa para a biblioteca `sonner`.
+   - Remoção do estado local `toast` e do `useEffect` de timeout manual.
+   - A função `showToast` agora dispara notificações via `sonnerToast`, mantendo a compatibilidade com os tipos existentes (`success`, `error`, `info`, `warning`).
+   - Preservação da lógica de bipe sonoro para erros e avisos.
+
+2. `/App.tsx`
+   - Configuração do componente `Toaster` com:
+     - `expand={false}` e `visibleToasts={3}` para empilhamento inteligente.
+     - `position="top-right"` no desktop.
+     - `mobileOffset={{ bottom: '80px' }}` para evitar sobreposição com elementos do topo no mobile.
+     - Estilização customizada via `toastOptions` para um design mais compacto, com fundo semi-transparente, desfoque (blur) e bordas sutis.
+
+3. `/layout/AppShell.tsx`
+   - Remoção da renderização manual de toasts via `framer-motion` e `AnimatePresence`.
+   - Limpeza de código redundante que ocupava espaço no topo da tela.
+
+4. `/features/auth/AuthScreen.tsx`
+   - Remoção da renderização manual de toasts na tela de login/autenticação.
+   - Unificação do comportamento de notificações em toda a aplicação.
+
+### Motivo técnico
+
+- A renderização manual anterior ocupava muito espaço e não possuía um sistema de empilhamento eficiente.
+- O uso de `sonner` permite um controle refinado sobre a pilha de notificações, reduzindo a obstrução visual.
+- O posicionamento no mobile foi ajustado para a parte inferior para evitar conflitos com o cabeçalho e elementos de navegação superiores.
+
+### Validação executada
+
+1. `npx tsc -b --pretty false`
+   - resultado: OK
+
+### Confirmação de escopo
+
+- Não foram alteradas rotas.
+- Não foram criados arquivos novos.
+- Não houve alteração na lógica de negócio ou persistência.
+- A funcionalidade de notificações foi preservada, apenas a forma de exibição foi otimizada e unificada.
+
+---
+
+## 2026-04-04 - Redução de Tamanho dos Alertas do Dashboard
+
+### Objetivo
+
+Reduzir o tamanho dos banners de alerta no Dashboard ("Atenção Necessária" e "Saldo Baixo"), tornando-os menos intrusivos e mais integrados ao layout, atendendo ao feedback de que as notificações estavam muito grandes.
+
+### Arquivos alterados
+
+1. `/features/dashboard/DashboardAlerts.tsx`
+   - Redução da altura do container de `h-20` para `h-14`.
+   - Redução do padding interno de `p-4` para `p-2.5`.
+   - Redução do gap entre ícone e texto de `gap-4` para `gap-3`.
+   - Redução do arredondamento de `rounded-2xl` para `rounded-xl`.
+   - Redução do tamanho do ícone de `24` para `18` e seu padding de `p-3` para `p-2`.
+   - Ajuste das fontes para tamanhos menores e limitação da mensagem a apenas 1 linha (`line-clamp-1`).
+   - Simplificação visual com a remoção de uma camada decorativa redundante.
+
+### Motivo técnico
+
+- Os banners de alerta originais ocupavam muito espaço vertical, empurrando o conteúdo principal para baixo.
+- A nova escala mantém a visibilidade e o contraste (cores vibrantes), mas com uma pegada física muito menor, melhorando a harmonia visual do Dashboard.
+
+### Validação executada
+
+1. `npx tsc -b --pretty false`
+   - resultado: OK
+
+### Confirmação de escopo
+
+- Alteração puramente estética e de layout no componente de alertas do Dashboard.
+- Nenhuma alteração em regras de negócio ou lógica de disparo de alertas.
+
+---
+
+## 2026-04-04 - Alertas Ultra-Compactos no Dashboard
+
+### Objetivo
+
+Reduzir drasticamente a ocupação de espaço dos alertas do Dashboard, transformando-os de banners de largura total em mini-cards compactos e elegantes, atendendo ao feedback de que ainda estavam grandes.
+
+### Arquivos alterados
+
+1. `/features/dashboard/DashboardAlerts.tsx`
+   - **Largura Inteligente:** O alerta deixou de ser `w-full` (largura total) para ser `w-fit` (ajustado ao conteúdo), centralizado no mobile e alinhado à esquerda no desktop.
+   - **Altura Mínima:** Reduzida para `h-10` (40px).
+   - **Layout em Linha Única:** Título e mensagem agora compartilham a mesma linha, separados por um divisor sutil.
+   - **Estética Refinada:** Uso de `backdrop-blur-md` e fundos semi-transparentes para um visual mais moderno e menos "pesado".
+   - **Micro-interações:** Ícones e botões de fechar reduzidos para escalas mínimas (`14px` e `12px`).
+
+### Motivo técnico
+
+- O design anterior de "banner" criava uma barreira visual muito forte.
+- O novo formato de "pílula" ou "mini-card" comunica a urgência sem dominar a interface, permitindo que o usuário veja mais conteúdo do Dashboard simultaneamente.
+
+### Validação executada
+
+1. `npx tsc -b --pretty false`
+   - resultado: OK
+
+### Confirmação de escopo
+
+- Refatoração visual do componente de alertas.
+- Mantida a funcionalidade de "drag to dismiss" e o timer de 24h.
+
+---
+
+## 2026-04-04 - Ajuste de Arredondamento (Mobile)
+
+### Objetivo
+
+Ajustar o arredondamento de elementos da interface mobile (abas de navegação do Dashboard e barra de filtros) para serem menos "circulares" e mais condizentes com o padrão visual do sistema, conforme solicitado pelo usuário.
+
+### Arquivos alterados
+
+1. `/pages/DashboardPage.tsx`
+   - Alterado `rounded-2xl` para `rounded-xl` no container de abas mobile.
+   - Alterado `rounded-xl` para `rounded-lg` nos botões internos.
+2. `/components/dashboard/DashboardControls.tsx`
+   - Alterado `rounded-2xl` para `rounded-xl` no container da barra de filtros.
+   - Alterado `rounded-xl` para `rounded-lg` nos botões de filtro.
+
+### Motivo técnico
+
+- O arredondamento `2xl` em elementos pequenos ou estreitos criava um aspecto de "pílula" (totalmente circular nas pontas) que destoava de outros componentes do sistema que utilizam um arredondamento mais moderado.
+
+### Validação executada
+
+1. `npm run lint`
+   - resultado: OK
+
+---
+
+## Atualização de Implementação
+
+Data: 2026-04-04
+
+### Escopo executado
+
+Refinamento da UI do Dashboard e lógica de "Caixa Livre" (Free Cash):
+
+1.  **Unificação da Lógica de Detecção de "Caixa Livre"**:
+    *   Padronização da detecção de fontes de lucro/caixa livre em `domain/dashboard/stats.ts` e `hooks/controllers/useSourceController.ts`.
+    *   Soma dos saldos de todas as fontes identificadas como "Caixa Livre" (ou termos equivalentes: lucro, disponível, balance).
+    *   Inclusão do `interestBalance` do perfil do usuário como fallback/complemento ao saldo das fontes.
+
+2.  **Precisão no Resgate de Lucros**:
+    *   Atualização do `handleWithdrawProfit` em `useSourceController.ts` para priorizar o saque da fonte "Caixa Livre" se houver saldo suficiente.
+    *   Fallback automático para o saldo do perfil (`interestBalance`) caso a fonte não tenha saldo suficiente ou não exista.
+    *   Exibição do saldo combinado (Fontes + Perfil) no modal de resgate em `ModalGroups.tsx`.
+
+3.  **Refinamento Estético do Modal de Resgate**:
+    *   Modernização da interface do modal "Resgatar Lucros" em `ModalGroups.tsx`.
+    *   Substituição de arredondamentos totais (`rounded-full`) por curvas mais suaves (`rounded-2xl` e `rounded-3xl`).
+    *   Adição de gradientes, sombras coloridas e micro-interações nos botões.
+    *   Melhoria na tipografia e labels dos campos de entrada.
+
+4.  **Refinamento de Alertas do Dashboard**:
+    *   Redução da intrusividade e tamanho dos banners de alerta em `features/dashboard/DashboardAlerts.tsx`.
+    *   Ajuste de altura (`h-10` para `h-8`), redução de padding e escala de animação para uma presença mais discreta na interface.
+    *   Melhoria na consistência visual dos alertas com o restante do dashboard.
+
+### Arquivos alterados nesta implementação
+
+#### `/domain/dashboard/stats.ts`
+*   Unificação da lógica de detecção de fontes de lucro.
+*   Soma de saldos de fontes e perfil para o `interestBalance` exibido no dashboard.
+
+#### `/hooks/controllers/useSourceController.ts`
+*   Refatoração do `handleWithdrawProfit` para suportar saque combinado (Fonte + Perfil).
+*   Priorização de saque via RPC `withdraw_profit_caixa_livre` quando há saldo na fonte.
+
+#### `/components/modals/ModalGroups.tsx`
+*   Atualização da exibição do saldo disponível para resgate, somando fontes e perfil.
+
+#### `/features/dashboard/DashboardAlerts.tsx`
+*   Redução de tamanho e intrusividade dos alertas.
+*   Ajustes finos de animação e layout para maior polimento.
+
+### Validação executada
+*   Verificação visual da consistência de saldos entre o card "Caixa Livre" e o modal de resgate.
+*   Teste de lógica de saque priorizando fontes de capital.
+*   Ajuste fino de responsividade e estética dos alertas.
+
+### Confirmação de escopo
+*   Não foram alteradas rotas ou layout global.
+*   As mudanças focaram estritamente no dashboard e na precisão financeira do "Caixa Livre".
+
+---
+
+## Atualização de Implementação
+
+Data: 2026-04-15
+
+### Escopo executado
+
+Ocultação das funcionalidades de **Captação** e **Equipe** para simplificação da interface, mantendo o código preservado para futura reativação.
+
+### Arquivos alterados nesta implementação
+
+#### `layout/NavHub.tsx`
+- Filtragem da lista `displayOrder` para remover as abas `TEAM` e `ACQUISITION`.
+
+#### `layout/BottomNav.tsx`
+- Remoção de `ACQUISITION` e `TEAM` da lista `mobileTabs`.
+- Comentada a lógica que adicionava a aba `TEAM` para usuários não-staff.
+
+#### `App.tsx`
+- Comentados os blocos de renderização das abas `TEAM` e `ACQUISITION`.
+- Isso desativa o acesso às páginas correspondentes mesmo que a aba seja selecionada programaticamente.
+
+#### `hooks/useAppNotifications.ts`
+- Comentados os ouvintes em tempo real (Supabase Realtime) para as tabelas `leads` e `campaign_chat_messages`.
+- Isso evita o processamento de notificações de captação em background.
+
+#### `features/support/components/ChatSidebar.tsx`
+- Comentadas as abas `TEAM` e `CAPTACAO` no menu lateral do chat de suporte.
+
+### Validação executada
+
+1. Verificação visual: Os itens de menu sumiram tanto no Desktop quanto no Mobile.
+2. Verificação de rotas: As abas não são mais renderizadas.
+3. Verificação de performance: Menos ouvintes ativos no Supabase.
+
+### Confirmação de escopo
+
+1. Nenhum código foi deletado permanentemente.
+2. Nenhuma alteração em banco de dados ou regras de negócio.
+3. Foco exclusivo na ocultação de interface e gatilhos de notificação.
+
+---
+
+### 15/04/2026 - Correção do Botão de Resgate (Withdraw)
+- **Objetivo**: Restaurar o funcionamento do botão "Resgatar" no card de lucro do Dashboard.
+- **Arquivos Alterados**:
+  - `pages/DashboardPage.tsx`: Agora chama `ui.openModal('WITHDRAW')` diretamente.
+  - `containers/DashboardContainer.tsx`: Passa o objeto `ui` para a página.
+  - `components/cards/ProfitCard.tsx`: Removido `stopPropagation` que poderia interferir no clique.
+  - `hooks/useUiState.ts`: Adicionada limpeza dos campos de resgate ao fechar modais.
+  - `components/modals/ModalGroups.tsx`: Melhorada a robustez da renderização do modal de resgate.
+- **Resultado**: O modal de resgate deve abrir consistentemente ao clicar no botão "Resgatar".
+
+### 15/04/2026 - Ajuste de Balanço e Lucro Projetado
+- **Objetivo**: Corrigir a percepção de valores no Dashboard, focando em Lucro em vez de Montante Total, e garantir a visibilidade do modal de resgate.
+- **Arquivos Alterados**:
+  - `domain/dashboard/stats.ts`: 
+    - `totalReceived` agora calcula apenas o **Lucro Realizado** (juros + multas).
+    - `expectedProfit` agora calcula o **Lucro Total Estimado** (Lucro Realizado + Lucro a Receber).
+    - `receivedThisMonth` agora conta apenas o lucro do mês.
+  - `pages/DashboardPage.tsx`: Atualizados os labels para "Lucro Realizado" e "Lucro Total (Est.)".
+  - `App.tsx`: Movido `ModalHostContainer` para fora do `AppShell` e adicionado `z-[9999]` para garantir visibilidade absoluta dos modais.
+  - `components/cards/ProfitCard.tsx`: Adicionado `z-index` aos botões de resgate.
+- **Resultado**: Os números agora refletem a rentabilidade real da operação e o botão de resgate foi blindado contra problemas de sobreposição de layout.
+
+### 15/04/2026 - Correções de Precisão e Segurança de Perfil
+- **Objetivo**: Eliminar erros de ponto flutuante nos cálculos e garantir que o perfil carregado sempre corresponda ao usuário logado.
+- **Arquivos Alterados**:
+  - `hooks/useAppState.ts`: Adicionada lógica de detecção de mismatch de perfil e correção automática baseada na sessão do Supabase.
+  - `services/maintenance.service.ts`: Implementado arredondamento decimal (`Math.round`) nas somas de lucro para garantir precisão de centavos.
+- **Resultado**: Sistema mais seguro contra inconsistências de sessão e cálculos financeiros matematicamente precisos.
+

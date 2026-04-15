@@ -97,7 +97,7 @@ export const Header: React.FC<HeaderProps> = ({
   }
 
   return (
-    <div className="w-full flex flex-col min-h-[6rem] justify-between">
+    <div className="w-full flex flex-col min-h-[6rem] justify-between relative">
       {/* Top Section: Avatar/Icon + Name + Badges */}
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -123,12 +123,11 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           </div>
 
-          <div className="min-w-0 flex flex-col">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="client-name font-black text-white uppercase leading-tight tracking-tight truncate max-w-[140px] sm:max-w-[220px]">
+          <div className="min-w-0 flex flex-col flex-1 pr-20 sm:pr-0">
+            <div className="flex items-center gap-2">
+              <h3 className="client-name font-black text-white uppercase leading-tight tracking-tight flex-1">
                 {formatShortName(debtorNameSafe)}
               </h3>
-              {Badge}
             </div>
             <div className="flex items-center gap-1.5 text-[9px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">
               <span className="bg-slate-800/50 px-1.5 rounded-sm">{getBillingCycleLabel(loan.billingCycle)}</span>
@@ -139,6 +138,9 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
             </div>
           </div>
+        </div>
+        <div className="absolute top-0 right-0">
+          {Badge}
         </div>
       </div>
 

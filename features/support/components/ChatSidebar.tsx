@@ -194,12 +194,15 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                         >
                             <Users size={12}/> Clientes
                         </button>
+                        {/* Desativado temporariamente: TEAM
                         <button 
                             onClick={() => setActiveTab('TEAM')}
                             className={`flex-1 py-2 text-[10px] font-black uppercase rounded-lg transition-all flex items-center justify-center gap-1 ${activeTab === 'TEAM' ? 'bg-slate-800 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}
                         >
                             <Briefcase size={12}/> Equipe
                         </button>
+                        */}
+                        {/* Desativado temporariamente: CAPTACAO
                         <button 
                             onClick={() => setActiveTab('CAPTACAO')}
                             className={`flex-1 py-2 text-[10px] font-black uppercase rounded-lg transition-all flex items-center justify-center gap-1 relative ${activeTab === 'CAPTACAO' ? 'bg-slate-800 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}
@@ -211,6 +214,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                                 </span>
                             )}
                         </button>
+                        */}
                     </div>
 
                     {activeTab === 'ACTIVE' && displayList.length > 0 && (

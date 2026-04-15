@@ -169,6 +169,7 @@ export default function CalendarView({
 
     filteredItems.forEach((item) => {
       const day = new Date(item.date.getFullYear(), item.date.getMonth(), item.date.getDate());
+      if (isNaN(day.getTime())) return; // Skip invalid dates
       const key = day.toISOString();
       if (!groups[key]) groups[key] = [];
       groups[key].push(item);

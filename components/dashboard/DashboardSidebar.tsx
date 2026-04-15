@@ -40,7 +40,7 @@ export const DashboardSidebar: React.FC<any> = ({ stats, activeUser, isStealthMo
           indicatorColor="bg-amber-500"
           footer={<div className="flex items-center gap-1 text-amber-400"><Percent size={10}/><span className="text-[9px] font-black uppercase">Retorno {stats.roi.toFixed(1)}%</span></div>}
         />
-        <ProfitCard balance={stats.interestBalance} onWithdraw={() => setWithdrawModal(true)} isStealthMode={isStealthMode} />
+        <ProfitCard balance={stats.interestBalance} onWithdraw={() => setWithdrawModal()} isStealthMode={isStealthMode} />
         
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col items-center shadow-md">
             <h3 className="text-[9px] font-black uppercase mb-3 tracking-widest text-slate-500 flex items-center gap-2 w-full"><PieIcon className="w-3 h-3 text-blue-500" /> Saúde</h3>

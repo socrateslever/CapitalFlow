@@ -189,27 +189,60 @@ export const FinanceModals = () => {
                 <PaymentManagerModal data={ui.paymentModal} onClose={closeModal} isProcessing={ui.isProcessingPayment} paymentType={ui.paymentType} setPaymentType={ui.setPaymentType} avAmount={ui.avAmount} setAvAmount={ui.setAvAmount} onConfirm={paymentCtrl.handlePayment} onOpenMessage={(l: any) => { ui.setMessageModalLoan(l); ui.openModal('MESSAGE_HUB'); }} />
             )}
 
-            {activeModal?.type === 'WITHDRAW' && activeUser && (
+            {activeModal?.type === 'WITHDRAW' && (
                 <Modal onClose={closeModal} title="Resgatar Lucros">
-                    <div className="space-y-4">
-                        <div className="bg-slate-950 p-4 rounded-full border border-slate-800 text-center">
-                            <p className="text-xs text-slate-500 uppercase font-bold">Disponível para Saque</p>
-                            <p className="text-2xl font-black text-emerald-400">
+                    <div className="space-y-6 pb-2">
+                        <div className="bg-slate-950/50 p-6 rounded-3xl border border-slate-800/50 text-center shadow-inner relative overflow-hidden group">
+                            <div className="absolute inset-0 bg-emerald-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest mb-1">Disponível para Saque</p>
+                            <p className="text-3xl font-black text-emerald-400 tracking-tight">
                                 R$ {
-                                    (sources.find(s => {
-                                        const n = (s.name || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "");
-                                        return n.includes('caixa livre') || n.includes('lucro') || n.includes('disponivel') || n.includes('balance');
-                                    })?.balance || activeUser.interestBalance || 0).toFixed(2)
+                                    (() => {
+                                        const caixaLivreSource = (sources || []).find(s => {
+                                            const n = (s.name || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "");
+                                            return n.includes('caixa livre') || n.includes('lucro') || n.includes('disponivel') || n.includes('balance');
+                                        });
+                                        const sourceBalance = Number(caixaLivreSource?.balance) || 0;
+                                        const profileBalance = Number(activeUser?.interestBalance) || 0;
+                                        return (sourceBalance + profileBalance).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+                                    })()
                                 }
                             </p>
                         </div>
-                        <input type="text" inputMode="decimal" placeholder="Valor do Resgate" className="w-full bg-slate-950 p-4 rounded-full text-white outline-none border border-slate-800" value={ui.withdrawValue || ''} onChange={e => ui.setWithdrawValue(e.target.value.replace(/[^0-9.,]/g, ''))} />
-                        <select className="w-full bg-slate-950 p-4 rounded-full text-white outline-none border border-slate-800" value={ui.withdrawSourceId || ''} onChange={e => ui.setWithdrawSourceId(e.target.value)}>
-                            <option value="">Selecione o destino...</option>
-                            <option value="EXTERNAL_WITHDRAWAL">Saque Externo</option>
-                            {sources.map((s: any) => <option key={s.id} value={s.id}>Reinvestir em: {s.name}</option>)}
-                        </select>
-                        <button onClick={sourceCtrl.handleWithdrawProfit} className="w-full py-4 bg-emerald-600 text-white font-bold rounded-full uppercase">Confirmar Resgate</button>
+
+                        <div className="space-y-4">
+                            <div>
+                                <label className="text-[10px] uppercase text-slate-500 font-black ml-2 mb-1.5 block tracking-wider">Valor do Resgate</label>
+                                <input 
+                                    type="text" 
+                                    inputMode="decimal" 
+                                    placeholder="R$ 0,00" 
+                                    className="w-full bg-slate-950/50 p-4 rounded-2xl text-white font-bold outline-none border border-slate-800 focus:border-emerald-500/50 focus:bg-slate-900 transition-all placeholder:text-slate-700" 
+                                    value={ui.withdrawValue || ''} 
+                                    onChange={e => ui.setWithdrawValue(e.target.value.replace(/[^0-9.,]/g, ''))} 
+                                />
+                            </div>
+
+                            <div>
+                                <label className="text-[10px] uppercase text-slate-500 font-black ml-2 mb-1.5 block tracking-wider">Destino do Capital</label>
+                                <select 
+                                    className="w-full bg-slate-950/50 p-4 rounded-2xl text-white font-bold outline-none border border-slate-800 focus:border-emerald-500/50 focus:bg-slate-900 transition-all cursor-pointer appearance-none" 
+                                    value={ui.withdrawSourceId || ''} 
+                                    onChange={e => ui.setWithdrawSourceId(e.target.value)}
+                                >
+                                    <option value="">Selecione o destino...</option>
+                                    <option value="EXTERNAL_WITHDRAWAL">Saque Externo (Dinheiro/PIX)</option>
+                                    {sources.map((s: any) => <option key={s.id} value={s.id}>Reinvestir em: {s.name}</option>)}
+                                </select>
+                            </div>
+                        </div>
+
+                        <button 
+                            onClick={sourceCtrl.handleWithdrawProfit} 
+                            className="w-full py-4.5 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white font-black rounded-2xl uppercase shadow-xl shadow-emerald-500/20 transition-all active:scale-[0.98] tracking-widest text-xs"
+                        >
+                            Confirmar Resgate
+                        </button>
                     </div>
                 </Modal>
             )}

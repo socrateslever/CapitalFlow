@@ -49,7 +49,7 @@ export const DashboardAlerts = ({ loans, sources }: { loans: Loan[]; sources?: C
       title: 'Atenção Necessária',
       message: `${critical} contratos com atraso crítico superior a 30 dias.`,
       color: 'rose',
-      icon: <ShieldAlert size={24} />,
+      icon: <ShieldAlert size={14} />,
       onDismiss: handleDismiss,
       priority: 1
     });
@@ -62,7 +62,7 @@ export const DashboardAlerts = ({ loans, sources }: { loans: Loan[]; sources?: C
         ? `A fonte "${lowBalanceSources[0].name}" está quase zerada.`
         : `${lowBalanceSources.length} fontes estão com saldo crítico (< R$ 100).`,
       color: 'amber',
-      icon: <AlertTriangle size={24} />,
+      icon: <AlertTriangle size={14} />,
       onDismiss: handleDismissBalance,
       priority: 2
     });
@@ -72,84 +72,72 @@ export const DashboardAlerts = ({ loans, sources }: { loans: Loan[]; sources?: C
   const sortedAlerts = [...alerts].sort((a, b) => a.priority - b.priority);
 
   return (
-    <div className="relative h-20 mb-6 mt-2">
+    <div className="relative h-8 mb-3 mt-0.5 flex justify-center sm:justify-start">
       <AnimatePresence mode="popLayout">
         {sortedAlerts.length > 0 && (
           <motion.div
             key={sortedAlerts[0].id}
-            initial={{ y: 10, opacity: 0, scale: 0.95 }}
+            initial={{ y: 5, opacity: 0, scale: 0.98 }}
             animate={{ y: 0, opacity: 1, scale: 1 }}
-            exit={{ x: 50, opacity: 0, scale: 0.95, transition: { duration: 0.2 } }}
-            transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+            exit={{ x: 30, opacity: 0, scale: 0.98, transition: { duration: 0.15 } }}
+            transition={{ type: 'spring', stiffness: 400, damping: 30 }}
             drag="x"
             dragConstraints={{ left: 0, right: 0 }}
             onDragEnd={(e, { offset, velocity }) => {
-              if (Math.abs(offset.x) > 100 || Math.abs(velocity.x) > 500) {
+              if (Math.abs(offset.x) > 80 || Math.abs(velocity.x) > 400) {
                 sortedAlerts[0].onDismiss();
               }
             }}
-            className="absolute inset-x-0 cursor-grab active:cursor-grabbing"
+            className="cursor-grab active:cursor-grabbing max-w-full"
           >
-            {/* Decorative Layer 2 (Back) - Purely decorative, no content */}
-            <div 
-              className={`absolute inset-0 rounded-2xl border pointer-events-none transition-transform duration-300 -z-20 
-                translate-y-2 scale-[0.94] opacity-30
-                ${sortedAlerts[0].color === 'rose' ? 'bg-rose-950 border-rose-500/30' : 'bg-amber-950 border-amber-500/30'}`} 
-            />
-            
-            {/* Decorative Layer 1 (Middle) - Purely decorative, no content */}
-            <div 
-              className={`absolute inset-0 rounded-2xl border pointer-events-none transition-transform duration-300 -z-10 
-                translate-y-1 scale-[0.97] opacity-60
-                ${sortedAlerts[0].color === 'rose' ? 'bg-rose-900 border-rose-500/40' : 'bg-amber-900 border-amber-500/40'}`} 
-            />
-
-            {/* Main Content Card (Front) - Solid background for perfect readability */}
-            <div className={`relative p-4 rounded-2xl flex items-center gap-4 border shadow-xl transition-colors duration-300 ${
+            {/* Main Content Card (Front) - Ultra Compact */}
+            <div className={`relative p-1 px-2.5 rounded-lg flex items-center gap-2 border shadow-sm transition-colors duration-300 ${
               sortedAlerts[0].color === 'rose' 
-                ? 'bg-gradient-to-br from-rose-500 to-rose-600 border-rose-400 text-white shadow-rose-900/40' 
-                : 'bg-gradient-to-br from-amber-400 to-amber-500 border-amber-300 text-black shadow-amber-900/40'
+                ? 'bg-rose-600/80 backdrop-blur-md border-rose-500/50 text-white shadow-rose-900/10' 
+                : 'bg-amber-500/80 backdrop-blur-md border-amber-400/50 text-black shadow-amber-900/10'
             }`}>
-              {/* Close Button - Only on top layer */}
+              
+              {/* Icon Section */}
+              <div className={`p-1 rounded-md shadow-sm flex-shrink-0 ${
+                sortedAlerts[0].color === 'rose' 
+                  ? 'bg-rose-500 text-white animate-pulse' 
+                  : 'bg-amber-400 text-black'
+              }`}>
+                {sortedAlerts[0].icon}
+              </div>
+
+              {/* Text Content - Single Line Compact */}
+              <div className="flex items-center gap-1.5 min-w-0">
+                <p className="font-black uppercase tracking-tighter text-[8px] whitespace-nowrap opacity-70">
+                  {sortedAlerts[0].title}
+                </p>
+                <div className="w-px h-2.5 bg-current opacity-10" />
+                <p className={`text-[9px] font-bold truncate ${
+                  sortedAlerts[0].color === 'rose' ? 'text-white' : 'text-amber-950'
+                }`}>
+                  {sortedAlerts[0].message}
+                </p>
+              </div>
+
+              {/* Close Button */}
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   sortedAlerts[0].onDismiss();
                 }}
-                className={`absolute top-3 right-3 transition-colors p-1.5 rounded-full ${
-                  sortedAlerts[0].color === 'rose' 
-                    ? 'text-rose-200 hover:text-white hover:bg-white/10' 
-                    : 'text-amber-900/50 hover:text-black hover:bg-black/10'
+                className={`ml-0.5 transition-colors p-0.5 rounded-full hover:bg-black/10 ${
+                  sortedAlerts[0].color === 'rose' ? 'text-white/60' : 'text-black/40'
                 }`}
                 title="Fechar por 24h"
               >
-                <X size={16} />
+                <X size={10} />
               </button>
-
-              {/* Icon Section */}
-              <div className={`p-3 rounded-xl shadow-lg flex-shrink-0 ${
-                sortedAlerts[0].color === 'rose' 
-                  ? 'bg-rose-500 text-white shadow-rose-900/20 animate-pulse' 
-                  : 'bg-amber-400 text-black shadow-amber-900/20'
-              }`}>
-                {sortedAlerts[0].icon}
-              </div>
-
-              {/* Text Content - Clear and readable */}
-              <div className="flex-1 min-w-0 pr-6">
-                <p className="font-black uppercase tracking-tight text-xs sm:text-sm truncate">
-                  {sortedAlerts[0].title}
-                </p>
-                <p className={`text-[10px] sm:text-xs font-bold leading-tight line-clamp-2 ${
-                  sortedAlerts[0].color === 'rose' ? 'text-rose-100' : 'text-amber-950/70'
-                }`}>
-                  {sortedAlerts[0].message}
-                </p>
-              </div>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
     </div>
+
+
   );
 };

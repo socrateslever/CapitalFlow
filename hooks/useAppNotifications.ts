@@ -225,6 +225,7 @@ export const useAppNotifications = ({
           }
         }
       )
+      /* Desativado temporariamente: Notificações de Captação
       // EVENTO REALTIME: Novo Lead de Captação
       .on(
         'postgres_changes',
@@ -282,6 +283,7 @@ export const useAppNotifications = ({
           }
         }
       )
+      */
       .subscribe();
 
     return () => {

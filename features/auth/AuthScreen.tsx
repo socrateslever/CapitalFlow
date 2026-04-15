@@ -665,26 +665,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
 
   return (
     <div className="min-h-[100dvh] bg-slate-950 flex items-start sm:items-center justify-center p-4 md:p-6 relative overflow-y-auto py-8">
-      {toast && (
-        <div
-          className={`fixed z-[150] px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-top-4 fade-in duration-300 left-4 right-4 top-4 md:left-auto md:right-4 md:w-auto ${
-            toast.type === 'error'
-              ? 'bg-rose-600 text-white'
-              : toast.type === 'warning'
-              ? 'bg-amber-500 text-black'
-              : 'bg-emerald-600 text-white'
-          }`}
-        >
-          {toast.type === 'error' ? (
-            <AlertCircle size={24} />
-          ) : toast.type === 'warning' ? (
-            <AlertTriangle size={24} />
-          ) : (
-            <CheckCircle2 size={24} />
-          )}
-          <span className="font-bold text-sm leading-tight">{toast.msg}</span>
-        </div>
-      )}
+      {/* Toasts are now handled by sonner in App.tsx */}
 
       <div className="absolute top-6 right-6 z-50">
         <button onClick={() => setShowHelpModal(true)} className="p-3 bg-slate-800/50 rounded-full text-slate-400 hover:text-white transition-all">

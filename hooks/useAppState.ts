@@ -136,23 +136,31 @@ export const useAppState = (activeProfileId: string | null, onProfileNotFound?: 
     // Antes de buscar dados, verifica se a sessão do Supabase ainda é válida
     const { data: { session } } = await supabase.auth.getSession();
     
+    // 🔥 CORREÇÃO: Se houver mismatch entre profileId solicitado e sessão logada, 
+    // e não for o modo DEMO, força o uso do ID da sessão para evitar vazamento ou erro de RLS.
+    let effectiveProfileId = profileId;
+    if (session?.user && profileId !== 'DEMO' && session.user.id !== profileId) {
+      console.warn("[useAppState] Mismatch detectado. Forçando perfil da sessão.", { requested: profileId, session: session.user.id });
+      effectiveProfileId = session.user.id;
+    }
+
     const isDev = window.location.hostname === 'localhost' || window.location.hostname.includes('run.app');
     if (isDev) {
       console.log('[useAppState] fetchFullData:', { 
-        profileId, 
+        profileId: effectiveProfileId, 
         sessionUserId: session?.user?.id,
-        match: session?.user?.id === profileId
+        match: session?.user?.id === effectiveProfileId
       });
     }
 
-    if (!session?.user && profileId !== 'DEMO') {
+    if (!session?.user && effectiveProfileId !== 'DEMO') {
       console.log("[useAppState] Sem sessão válida, abortando fetch");
       setLoadError('SESSAO_EXPIRADA');
       setIsLoadingData(false);
       return;
     }
 
-    if (profileId === 'DEMO') {
+    if (effectiveProfileId === 'DEMO') {
       setActiveUser(DEMO_USER);
       setProfileEditForm(DEMO_USER);
       setNavOrder(DEFAULT_NAV);
@@ -167,7 +175,7 @@ export const useAppState = (activeProfileId: string | null, onProfileNotFound?: 
       const { data: profileData, error } = await supabase
         .from('perfis')
         .select('*')
-        .eq('id', profileId)
+        .eq('id', effectiveProfileId)
         .maybeSingle();
 
       if (error) {
@@ -244,7 +252,7 @@ export const useAppState = (activeProfileId: string | null, onProfileNotFound?: 
       setLoans(mappedLoans);
       setStaffMembers(mappedStaff);
 
-      writeCache(profileId, {
+      writeCache(effectiveProfileId, {
         activeUser: u,
         clients: mappedClients,
         sources: mappedSources,

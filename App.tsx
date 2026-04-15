@@ -271,7 +271,25 @@ export const App: React.FC = () => {
 
   return (
     <Suspense fallback={<LoadingScreen />}>
-      <Toaster theme="dark" position="top-right" />
+      <Toaster 
+        theme="dark" 
+        position="top-right" 
+        expand={false} 
+        visibleToasts={3}
+        richColors
+        closeButton
+        toastOptions={{
+          style: {
+            background: 'rgba(15, 23, 42, 0.9)',
+            backdropFilter: 'blur(8px)',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            color: '#fff',
+            fontSize: '13px',
+            borderRadius: '12px',
+          },
+        }}
+        mobileOffset={{ bottom: '80px' }}
+      />
       {isInvitePath ? (
         <>
           {window.location.pathname === '/invite' && <InvitePage />}
@@ -378,6 +396,7 @@ export const App: React.FC = () => {
                 </motion.div>
               )}
 
+              {/* Desativado temporariamente: TEAM
               {activeTab === 'TEAM' && !activeUser?.supervisor_id && (
                 <motion.div 
                   key="team-view" 
@@ -395,6 +414,7 @@ export const App: React.FC = () => {
                   />
                 </motion.div>
               )}
+              */}
 
               {activeTab === 'SOURCES' && (
                 <motion.div 
@@ -477,6 +497,7 @@ export const App: React.FC = () => {
                 </motion.div>
               )}
 
+              {/* Desativado temporariamente: ACQUISITION
               {activeTab === 'ACQUISITION' && (
                 <motion.div 
                   key="acq-view" 
@@ -487,6 +508,7 @@ export const App: React.FC = () => {
                   <CustomerAcquisitionPage activeUser={activeUser} goBack={goBack} isStealthMode={ui.isStealthMode} />
                 </motion.div>
               )}
+              */}
 
               {/* Removido tab SUPPORT não autorizada */}
 
@@ -668,6 +690,10 @@ export const App: React.FC = () => {
               )}
             </AnimatePresence>
 
+            <NavHubController ui={ui} setActiveTab={handleSetActiveTab} activeUser={activeUser} hubOrder={hubOrder} />
+          </AppShell>
+
+          <div className="relative z-[9999]">
             <ModalHostContainer
               ui={ui}
               activeUser={activeUser}
@@ -687,9 +713,7 @@ export const App: React.FC = () => {
               fetchFullData={fetchFullData}
               handleLogout={handleLogout}
             />
-
-            <NavHubController ui={ui} setActiveTab={handleSetActiveTab} activeUser={activeUser} hubOrder={hubOrder} />
-          </AppShell>
+          </div>
         </AppGate>
       )}
     </Suspense>

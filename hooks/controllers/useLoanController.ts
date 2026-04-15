@@ -5,6 +5,7 @@ import { demoService } from '../../services/demo.service';
 import { ledgerService } from '../../services/ledger.service';
 import { tinyService } from '../../services/tinyService';
 import { getOrCreatePortalLink } from '../../utils/portalLink';
+import { maintenanceService } from '../../services/maintenance.service';
 import type { Loan, UserProfile, CapitalSource, Client, LedgerEntry } from '../../types';
 
 const isUUID = (v: any) =>
@@ -284,6 +285,49 @@ export const useLoanController = (
     });
   };
 
+  const handleRecalculateAll = async () => {
+    if (!activeUser) return;
+    const ownerId = getOwnerId();
+    if (!ownerId) return;
+
+    ui.setIsProcessingPayment(true); // Reutiliza o estado de processamento para mostrar loader
+    try {
+      showToast('Iniciando recalculo completo...', 'success');
+      
+      // 🕵️ DEBUG: Detalha o lucro por contrato no console para conferência
+      console.group('--- DETALHAMENTO DE LUCRO (RECALCULO) ---');
+      let debugTotal = 0;
+      loans.filter(l => !(l.debtorName || '').toLowerCase().includes('teste')).forEach(loan => {
+        let loanProfit = 0;
+        (loan.ledger || []).forEach(t => {
+          if (t.type?.includes('PAYMENT') || t.type === 'ESTORNO' || t.type === 'AGREEMENT_PAYMENT_REVERSED') {
+            loanProfit += (Number(t.interestDelta || t.interest_delta || 0) + Number(t.lateFeeDelta || t.late_fee_delta || 0));
+          }
+        });
+        if (loanProfit !== 0) {
+          console.log(`Contrato: ${loan.debtorName} | Lucro: R$ ${loanProfit.toFixed(2)}`);
+          debugTotal += loanProfit;
+        }
+      });
+      console.log(`LUCRO BRUTO TOTAL ENCONTRADO NO LEDGER: R$ ${debugTotal.toFixed(2)}`);
+      console.groupEnd();
+
+      // 1. Recalcula estados dos empréstimos
+      await maintenanceService.recalculateAllLoans(loans);
+      
+      // 2. Sincroniza saldo do perfil (Lucro Realizado)
+      await maintenanceService.syncProfileBalance(ownerId, loans);
+      
+      await fetchFullData(ownerId);
+      showToast('Balanço recalculado e sincronizado!', 'success');
+    } catch (e: any) {
+      console.error(e);
+      showToast('Erro no recalculo: ' + e.message, 'error');
+    } finally {
+      ui.setIsProcessingPayment(false);
+    }
+  };
+
   return {
     handleSaveLoan,
     handleSaveNote,
@@ -291,6 +335,7 @@ export const useLoanController = (
     handleGenerateLink,
     handleExportExtrato,
     handleActivateLoan,
+    handleRecalculateAll,
     openConfirmation,
     executeConfirmation,
     openReverseTransaction,

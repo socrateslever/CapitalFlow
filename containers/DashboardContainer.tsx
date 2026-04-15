@@ -47,7 +47,7 @@ export const DashboardContainer: React.FC<DashboardContainerProps> = ({
 
   // Filtros de busca e status aplicados diretamente aos empréstimos do escopo
   const filteredLoans = useMemo(() => filterLoans(scopeLoans, searchTerm, statusFilter), [scopeLoans, searchTerm, statusFilter]);
-  const stats = useMemo(() => buildDashboardStats(scopeLoans, sources), [scopeLoans, sources]);
+  const stats = useMemo(() => buildDashboardStats(scopeLoans, sources, activeUser), [scopeLoans, sources, activeUser]);
 
   const handleAgreementPayment = async (loan: Loan, agreement: Agreement, inst: AgreementInstallment) => {
       if (!activeUser) return;
@@ -117,6 +117,8 @@ export const DashboardContainer: React.FC<DashboardContainerProps> = ({
         setWithdrawModal={() => ui.openModal('WITHDRAW')}
         showToast={showToast}
         isStealthMode={ui.isStealthMode}
+        ui={ui}
+        loanCtrl={loanCtrl}
     />
   );
 };

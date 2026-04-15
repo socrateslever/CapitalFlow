@@ -33,14 +33,12 @@ export const LoanCard: React.FC<LoanCardProps> = (props) => {
   const {
     isLate, hasActiveAgreement, isFullyFinalized, iconStyle,
     orderedInstallments, totalDebt, activeAgreement, fixedTermStats,
-    isPaid, isZeroBalance, showProgress, strategy, isDailyFree, isFixedTerm
+    isPaid, isZeroBalance, showProgress, strategy, isDailyFree, isFixedTerm,
+    nextDueDate, daysUntilDue
   } = computed;
 
   // Helpers de Apresentação
   const debtorNameSafe = getDebtorNameSafe(loan);
-  const nextInstallment = getNextInstallment(orderedInstallments);
-  const nextDueDate = getNextDueDate(nextInstallment);
-  const daysUntilDue = getDaysUntilDue(nextDueDate);
 
   // Definição da cor da borda lateral baseada no status
   let borderLeftColor = "border-l-slate-700"; // Padrão

@@ -33,7 +33,7 @@ function resolveCaixaLivreIdFromMemory(sources: CapitalSource[]): string | null 
 
   const caixaLivre = sources.find((s) => {
     const n = normalize((s as any)?.name ?? (s as any)?.nome);
-    return n.includes('caixa livre') || n === 'lucro' || n.includes('lucro');
+    return n.includes('caixa livre') || n.includes('lucro') || n.includes('disponivel') || n.includes('balance');
   });
   if (caixaLivre?.id && isUUID(caixaLivre.id)) return caixaLivre.id;
 
@@ -51,7 +51,7 @@ async function resolveCaixaLivreIdFromDB(ownerId: string): Promise<string | null
 
   const found = data.find((f: any) => {
     const n = normalize(f?.nome);
-    return n.includes('caixa livre') || n === 'lucro' || n.includes('lucro');
+    return n.includes('caixa livre') || n.includes('lucro') || n.includes('disponivel') || n.includes('balance');
   });
 
   return found?.id && isUUID(found.id) ? found.id : null;

@@ -49,7 +49,7 @@ async function resolveCaixaLivreId(supabase: any, profileId: string) {
 
   const found = data.find((item: any) => {
     const name = normalize(item?.nome);
-    return name.includes("caixa livre") || name === "lucro" || name.includes("lucro");
+    return name.includes("caixa livre") || name.includes("lucro") || name.includes("disponivel") || name.includes("balance");
   });
 
   return found?.id || null;

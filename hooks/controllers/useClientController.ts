@@ -88,7 +88,8 @@ export const useClientController = (
     if (!phone.trim()) { showToast('Telefone é obrigatório.', 'error'); return; }
 
     const cleanDoc = onlyDigits(document);
-    if (cleanDoc && !isValidCPForCNPJ(cleanDoc)) {
+    // ✅ REGRA: CPF/CNPJ é opcional, mas se preenchido deve ser válido.
+    if (cleanDoc && cleanDoc.length > 0 && !isValidCPForCNPJ(cleanDoc)) {
       showToast('CPF ou CNPJ inválido.', 'error');
       return;
     }
@@ -106,28 +107,24 @@ export const useClientController = (
     try {
       const ownerId = (activeUser as any).supervisor_id || activeUser.id;
 
-      const cleanDoc = onlyDigits(document);
       const cleanPhone = onlyDigits(normalizeBrazilianPhone(phone));
 
       // Verificação de duplicidade (apenas se não estiver editando o mesmo)
       const cleanName = String(name || '').trim();
-      if (cleanName && !isTestClientName(cleanName)) {
+      const isTest = (cleanName || '').toLowerCase().includes('teste');
+
+      if (cleanName && !isTest) {
         let qn = supabase
           .from('clientes')
           .select('id, name')
           .eq('owner_id', ownerId)
           .ilike('name', cleanName)
-          .limit(1); // ✅ BUG 1: Garante no máximo 1 linha para evitar erro de multiple rows
+          .limit(1); 
 
         if (ui.editingClient?.id) qn = qn.neq('id', ui.editingClient.id);
 
         const { data: existingName, error: checkError } = await qn.maybeSingle();
         
-        // @ts-ignore
-        if (import.meta.env.DEV) {
-          console.log('[DEV] Verificação de nome:', { cleanName, ownerId, found: !!existingName, error: checkError });
-        }
-
         if (existingName) {
           showToast(`Já existe cliente com esse nome: ${existingName.name}.`, 'error');
           ui.setIsSaving(false);

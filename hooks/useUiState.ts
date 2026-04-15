@@ -191,6 +191,10 @@ export const useUiState = () => {
     setExtraDocUploadLoanId(null);
     setExtraDocKind(null);
 
+    // withdraw
+    setWithdrawValue('');
+    setWithdrawSourceId('');
+
     // import
     resetImports();
 
