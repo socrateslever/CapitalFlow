@@ -301,7 +301,7 @@ export const useLoanController = (
         let loanProfit = 0;
         (loan.ledger || []).forEach(t => {
           if (t.type?.includes('PAYMENT') || t.type === 'ESTORNO' || t.type === 'AGREEMENT_PAYMENT_REVERSED') {
-            loanProfit += (Number(t.interestDelta || t.interest_delta || 0) + Number(t.lateFeeDelta || t.late_fee_delta || 0));
+            loanProfit += (Number(t.interestDelta || 0) + Number(t.lateFeeDelta || 0));
           }
         });
         if (loanProfit !== 0) {

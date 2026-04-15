@@ -185,12 +185,27 @@ export const useAppState = (activeProfileId: string | null, onProfileNotFound?: 
       }
 
       if (!profileData) {
-        if (onProfileNotFound) onProfileNotFound();
-        setLoadError('Perfil não encontrado no sistema.');
-        setIsLoadingData(false);
+        // 🔥 SEGURANÇA MÁXIMA: Se o perfil não existe no banco, criamos um virtual em memória
+        // para que o usuário NUNCA seja expulso do sistema se estiver autenticado no Auth.
+        console.warn("[useAppState] Perfil não encontrado no banco. Usando perfil virtual.");
         
-        // Limpa a sessão local se o perfil não existe mais no banco
-        localStorage.removeItem('cm_session');
+        const virtualUser: UserProfile = {
+          id: effectiveProfileId,
+          profile_id: effectiveProfileId,
+          name: session?.user?.email?.split('@')[0] || 'Novo Gestor',
+          fullName: session?.user?.email?.split('@')[0] || 'Novo Gestor',
+          email: session?.user?.email || '',
+          accessLevel: 'ADMIN',
+          interestBalance: 0,
+          totalAvailableCapital: 0,
+          ui_nav_order: DEFAULT_NAV,
+          ui_hub_order: DEFAULT_HUB,
+          brandColor: '#2563eb',
+        };
+
+        setActiveUser(virtualUser);
+        setProfileEditForm(virtualUser);
+        setIsLoadingData(false);
         return;
       }
 

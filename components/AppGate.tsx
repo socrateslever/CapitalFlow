@@ -186,33 +186,10 @@ export const AppGate: React.FC<AppGateProps> = ({
     );
   }
 
-  // 2. Com usuário mas sem Perfil (Falha crítica ou Novo Usuário via OAuth sem Trigger funcional)
-  if (!activeProfileId && !isLoadingData) {
-      return (
-          <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6 text-center">
-              <div className="max-w-sm space-y-6">
-                  <div className="w-20 h-20 bg-rose-500/20 border border-rose-500/30 rounded-full flex items-center justify-center mx-auto mb-6">
-                      <AlertTriangle className="text-rose-500" size={40} />
-                  </div>
-                  <h2 className="text-white font-black text-2xl uppercase tracking-tighter italic">Perfil Não Resolvido</h2>
-                  <p className="text-slate-400 text-sm font-medium leading-relaxed">
-                      Sua conta foi autenticada, mas não conseguimos localizar ou criar seu perfil de operador.
-                  </p>
-                  <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl text-[10px] text-slate-500 font-mono break-all font-bold">
-                    USER_ID: {activeUser?.id}
-                  </div>
-                  <button 
-                    onClick={() => supabase.auth.signOut().then(() => window.location.reload())}
-                    className="w-full bg-slate-800 hover:bg-slate-700 text-white py-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all"
-                  >
-                    Tentar Novamente (Logout)
-                  </button>
-                  <p className="text-[10px] text-slate-600 font-bold uppercase pt-4">Contate o administrador do sistema.</p>
-              </div>
-          </div>
-      );
-  }
-
+  // 2. Com usuário mas sem Perfil (Aguardando sincronização ou falha na Trigger)
+  // ✅ REMOVIDO BLOQUEIO: O AppGate agora permite carregar o app mesmo sem profileId, 
+  // deixando que o useAppState lide com a identidade temporária.
+  
   // =========================
   // Usuário autenticado
   // =========================

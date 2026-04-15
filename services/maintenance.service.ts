@@ -53,7 +53,7 @@ export const maintenanceService = {
       (loan.ledger || []).forEach(t => {
         // Considera pagamentos e estornos de pagamentos
         if (t.type?.includes('PAYMENT') || t.type === 'ESTORNO' || t.type === 'AGREEMENT_PAYMENT_REVERSED') {
-          const profit = (Number(t.interest_delta || t.interestDelta || 0) + Number(t.late_fee_delta || t.lateFeeDelta || 0));
+          const profit = (Number(t.interestDelta || 0) + Number(t.lateFeeDelta || 0));
           totalProfit = Math.round((totalProfit + profit) * 100) / 100;
         }
       });
