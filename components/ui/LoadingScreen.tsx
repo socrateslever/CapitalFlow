@@ -11,6 +11,8 @@ const TIPS = [
   "Dica: Registre intenções de pagamento para prever o fluxo de caixa do dia."
 ];
 
+import { SYSTEM_VERSION } from '../../src/constants/version';
+
 export const LoadingScreen: React.FC = () => {
   const [tipIndex, setTipIndex] = useState(0);
 
@@ -86,11 +88,16 @@ export const LoadingScreen: React.FC = () => {
       </div>
 
       {/* Footer de Segurança */}
-      <div className="absolute bottom-12 flex flex-col items-center gap-2 opacity-50 animate-in fade-in duration-1000 delay-500">
+      <div className="absolute bottom-8 flex flex-col items-center gap-2 opacity-50 animate-in fade-in duration-1000 delay-500">
         <ShieldCheck size={18} className="text-emerald-500"/>
-        <p className="text-[9px] font-black text-slate-600 uppercase tracking-[0.3em]">
-            Ambiente Criptografado
-        </p>
+        <div className="text-center">
+            <p className="text-[9px] font-black text-slate-600 uppercase tracking-[0.3em] mb-1">
+                Ambiente Criptografado
+            </p>
+            <p className="text-[8px] font-bold text-slate-700 font-mono">
+                REV {SYSTEM_VERSION.version} • BUILD {SYSTEM_VERSION.build}
+            </p>
+        </div>
       </div>
     </div>
   );

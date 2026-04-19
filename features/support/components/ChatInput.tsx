@@ -60,9 +60,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, isUploading, place
             setShowAttachMenu(false);
           }
         },
-        async (err) => {
-          console.error('Geolocation error:', err);
-          await onSend('⚠️ Não foi possível obter sua localização. Verifique as permissões do navegador.', 'text');
+        (err) => {
+          console.error(`Geolocation error (${err.code}): ${err.message}`);
+          onSend('⚠️ Não foi possível obter sua localização. Verifique as permissões do navegador.', 'text');
           setIsLocating(false);
           setShowAttachMenu(false);
         },

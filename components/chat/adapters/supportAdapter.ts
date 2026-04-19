@@ -8,10 +8,12 @@ import {
 } from '../chatAdapter';
 import { supabase as defaultSupabase } from '../../../lib/supabase';
 import { supportChatService } from '../../../services/supportChat.service';
+import { formatFirstAndSecondName } from '../../../utils/formatters';
 
 export interface SupportContext {
   loanId: string;
-  profileId: string;
+  profileId: string; // Tenant (Professional) ID
+  myId: string;      // Current User (Author) ID
   clientName: string;
   operatorId?: string;
 }
@@ -38,9 +40,11 @@ export const createSupportAdapter = (
   },
 
   async getHeader(context: SupportContext): Promise<ChatHeaderInfo> {
-    const { loanId } = context;
+    const { loanId, clientName } = context;
+    const displayTitle = formatFirstAndSecondName(clientName);
+
     if (!isUuid(loanId))
-      return { title: context.clientName, subtitle: 'Contrato inválido' };
+      return { title: displayTitle, subtitle: 'Atendimento Direto', status: 'OPEN' };
 
     try {
       const { data: ticket } = await supabaseClient
@@ -65,7 +69,7 @@ export const createSupportAdapter = (
         : false;
 
       return {
-        title: context.clientName,
+        title: displayTitle,
         subtitle: `Contrato: ${loanId.slice(0, 8)}`,
         status: (ticket?.status as any) || 'OPEN',
         isOnline
@@ -74,7 +78,7 @@ export const createSupportAdapter = (
     } catch (err: any) {
       console.warn('[supportAdapter] header error:', err?.message);
       return {
-        title: context.clientName,
+        title: displayTitle,
         subtitle: `Contrato: ${loanId.slice(0, 8)}`,
         status: 'OPEN',
         isOnline: false
@@ -83,9 +87,12 @@ export const createSupportAdapter = (
   },
 
   async listMessages(context: SupportContext): Promise<ChatMessage[]> {
-    if (!isUuid(context.loanId)) return [];
-
-    const msgs = await supportChatService.getMessages(context.loanId, supabaseClient);
+    const { loanId, profileId } = context;
+    if (!isUuid(profileId)) return [];
+    
+    // Suporte para chat sem loanId (ex: suporte geral)
+    const targetId = isUuid(loanId) ? loanId : profileId;
+    const msgs = await supportChatService.getMessages(targetId, supabaseClient);
 
     return msgs.map((m: any) => ({
       ...m,
@@ -94,11 +101,13 @@ export const createSupportAdapter = (
   },
 
   subscribeMessages(context: SupportContext, handlers) {
-    const { loanId, profileId } = context;
-    if (!isUuid(loanId)) return () => {};
+    const { loanId, profileId, myId } = context;
+    if (!isUuid(profileId)) return () => {};
+    
+    const targetId = isUuid(loanId) ? loanId : profileId;
 
     const channel = supabaseClient
-      .channel(`support-${loanId}`)
+      .channel(`support-${targetId}`)
 
       .on(
         'postgres_changes',
@@ -106,18 +115,33 @@ export const createSupportAdapter = (
           event: 'INSERT',
           schema: 'public',
           table: 'mensagens_suporte',
-          filter: `loan_id=eq.${loanId}`
+          filter: `loan_id=eq.${targetId}`
         },
         (payload) => {
           const newMsg = payload.new as any;
+          
+          const processAndEmit = async () => {
+            // ✅ Se tem anexo e não é URL, gera assinatura realtime
+            if (newMsg.file_url && !/^https?:\/\//i.test(newMsg.file_url)) {
+              try {
+                const { data } = await supabaseClient.storage
+                  .from('support_chat')
+                  .createSignedUrl(newMsg.file_url, 3600);
+                if (data?.signedUrl) {
+                  newMsg.file_url = data.signedUrl;
+                }
+              } catch (e) {
+                console.warn('[supportAdapter] realtime sign error:', e);
+              }
+            }
 
-          // ✅ evita notificar a si mesmo
-          if (newMsg.profile_id === profileId) return;
+            handlers.onNewMessage?.({
+              ...newMsg,
+              content: newMsg.content || newMsg.text
+            } as any);
+          };
 
-          handlers.onNewMessage?.({
-            ...newMsg,
-            content: newMsg.content || newMsg.text
-          } as any);
+          processAndEmit();
         }
       )
 
@@ -160,16 +184,21 @@ export const createSupportAdapter = (
   },
 
   async sendMessage(context: SupportContext, payload): Promise<void> {
-    const { loanId, profileId } = context;
+    const { loanId, profileId, myId } = context;
 
-    if (!isUuid(loanId) || !isUuid(profileId))
-      throw new Error('Dados inválidos');
+    if (!isUuid(profileId))
+      throw new Error(`ID Profissional Inválido (${profileId || 'Nulo'})`);
+
+    if (!isUuid(myId))
+      throw new Error(`Seu ID de Autor não foi reconhecido (${myId || 'Nulo'})`);
+      
+    const effectiveLoanId = isUuid(loanId) ? loanId : profileId;
 
     const operatorId =
       role === 'OPERATOR'
         ? (context.operatorId && isUuid(context.operatorId)
             ? context.operatorId
-            : profileId)
+            : myId)
         : undefined;
 
     const text = String(payload?.content || '').trim();
@@ -178,8 +207,9 @@ export const createSupportAdapter = (
 
     await supportChatService.sendMessage({
       profileId,
-      loanId,
+      loanId: effectiveLoanId,
       sender: role as any,
+      clientId: myId, // Usa o ID pessoal do autor (seja operador ou cliente)
       operatorId,
       text,
       type: payload.type as any,

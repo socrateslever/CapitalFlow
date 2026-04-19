@@ -143,7 +143,7 @@ export const AppShell: React.FC<AppShellProps> = ({
         <div className="fixed bottom-22 md:bottom-8 right-6 z-[var(--z-fab)] flex flex-col gap-3 items-center mb-safe">
           <button 
             onClick={onNewLoan}
-            className="w-12 h-12 flex items-center justify-center text-white rounded-full shadow-2xl hover:scale-110 transition-all active:scale-95 group"
+            className="w-12 h-12 relative flex items-center justify-center text-white rounded-full shadow-2xl hover:scale-110 transition-all active:scale-95 group"
             style={{
               background: `linear-gradient(135deg, ${activeUser?.brandColor || '#2563eb'}, ${activeUser?.brandColor || '#2563eb'}dd)`,
               boxShadow: `0 10px 25px -5px ${activeUser?.brandColor || '#2563eb'}66`
@@ -155,7 +155,7 @@ export const AppShell: React.FC<AppShellProps> = ({
 
           <button 
             onClick={onOpenSupport}
-            className="w-12 h-12 flex items-center justify-center text-white rounded-full shadow-2xl hover:scale-110 transition-all active:scale-95 group"
+            className="w-12 h-12 relative flex items-center justify-center text-white rounded-full shadow-2xl hover:scale-110 transition-all active:scale-95 group"
             style={{
               background: `linear-gradient(135deg, ${activeUser?.brandColor || '#2563eb'}, ${activeUser?.brandColor || '#2563eb'}dd)`,
               boxShadow: `0 10px 25px -5px ${activeUser?.brandColor || '#2563eb'}66`

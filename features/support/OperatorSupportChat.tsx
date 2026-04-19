@@ -135,6 +135,8 @@ export default function OperatorSupportChat({ activeUser, onClose }: { activeUse
           // Cria objeto de chat temporário para iniciar conversa
           setSelectedChat({
               loanId: contact.loanId,
+              clientId: contact.clientId,
+              profileId: contact.profileId,
               clientName: contact.clientName,
               type: 'ACTIVE'
           });
@@ -161,6 +163,25 @@ export default function OperatorSupportChat({ activeUser, onClose }: { activeUse
           }
       });
   };
+
+  const supportContext = useMemo(() => {
+    if (!selectedChat || selectedChat.type === 'CAMPAIGN') return null;
+    return { 
+      loanId: selectedChat.loanId, 
+      profileId: selectedChat.profileId || activeUser.id, 
+      myId: activeUser.id,
+      clientName: selectedChat.clientName, 
+      operatorId: activeUser.id 
+    };
+  }, [selectedChat, activeUser.id]);
+
+  const campaignContext = useMemo(() => {
+    if (!selectedChat || selectedChat.type !== 'CAMPAIGN') return null;
+    return { 
+      sessionToken: selectedChat.session_token, 
+      clientName: selectedChat.clientName 
+    };
+  }, [selectedChat]);
 
   return (
     <div className="fixed inset-0 z-[var(--z-support)] w-full h-full bg-slate-950 flex flex-col animate-in fade-in duration-300 font-sans pointer-events-auto">
@@ -212,11 +233,11 @@ export default function OperatorSupportChat({ activeUser, onClose }: { activeUse
 
         {/* ÁREA DE CHAT */}
         <div className={`flex-1 flex flex-col relative min-w-0 w-full h-full ${!selectedChat ? 'hidden md:flex' : 'flex'} ${chatTheme === 'blue' ? 'bg-slate-900/50' : 'bg-slate-900'}`}>
-          {selectedChat ? (
+          {selectedChat && (selectedChat.type === 'CAMPAIGN' ? campaignContext : supportContext) ? (
             selectedChat.type === 'CAMPAIGN' ? (
               <UnifiedChat
                 adapter={captacaoAdapter}
-                context={{ sessionToken: selectedChat.session_token, clientName: selectedChat.clientName }}
+                context={campaignContext!}
                 role="OPERATOR"
                 userId={activeUser.id}
                 onClose={() => setSelectedChat(null)}
@@ -227,7 +248,7 @@ export default function OperatorSupportChat({ activeUser, onClose }: { activeUse
             ) : (
               <UnifiedChat
                 adapter={supportAdapter}
-                context={{ loanId: selectedChat.loanId, profileId: selectedChat.clientId, clientName: selectedChat.clientName, operatorId: activeUser.id }}
+                context={supportContext!}
                 role="OPERATOR"
                 userId={activeUser.id}
                 onClose={() => setSelectedChat(null)}

@@ -28,6 +28,7 @@ type SendMessageParams = {
   profileId: string;
   loanId: string;
   sender: 'CLIENT' | 'OPERATOR';
+  clientId?: string; // ID real do autor (se for cliente)
   operatorId?: string;
   text?: string;
   type?: SupportMessageType;
@@ -79,7 +80,13 @@ async function uploadToStorage(params: { loanId: string; file: File }) {
     upsert: false,
     contentType: file.type || 'application/octet-stream',
   });
-  if (upErr) throw new Error(`Storage upload falhou: ${upErr.message}`);
+  if (upErr) {
+    console.error('[Storage Error]', upErr);
+    if (upErr.message.includes('row-level security policy')) {
+      throw new Error(`Este canal não permite envio de arquivos no momento. Utilize o suporte via WhatsApp.`);
+    }
+    throw new Error(`Storage upload falhou: ${upErr.message}`);
+  }
   return { path };
 }
 
@@ -108,8 +115,8 @@ export const supportChatService = {
       // Gera signed URLs para anexos (quando file_url é PATH e não http)
       const out: SupportMessage[] = [];
       for (const m of msgs) {
-        const hasFile =
-          (m.type === 'audio' || m.type === 'image' || m.type === 'file') && m.file_url;
+        // ✅ any message with file_url that is a path needs signing
+        const hasFile = !!m.file_url;
 
         if (hasFile && m.file_url && !isHttpUrl(m.file_url)) {
           try {
@@ -117,7 +124,7 @@ export const supportChatService = {
               .from(BUCKET)
               .createSignedUrl(m.file_url, SIGNED_URL_TTL);
 
-            if (signedError) throw new Error(`SignedUrl falhou: ${signedError.message}`);
+            if (signedError) throw new Error(`SignedUrl falhou para ${m.file_url}: ${signedError.message}`);
 
             out.push({
               ...m,
@@ -128,7 +135,8 @@ export const supportChatService = {
                 signed_expires_in: SIGNED_URL_TTL,
               },
             });
-          } catch {
+          } catch (e: any) {
+            console.error('[supportChatService] Erro ao assinar URL:', e?.message || e);
             out.push(m);
           }
         } else {
@@ -155,6 +163,7 @@ export const supportChatService = {
       profileId,
       loanId,
       sender,
+      clientId,
       operatorId,
       text,
       type = 'text',
@@ -166,15 +175,10 @@ export const supportChatService = {
     // ✅ Permite loanId nulo ou virtual para suporte direto
     if (!profileId) throw new Error('CLIENT sem profileId (client_id). Corrija o context do chat.');
 
-    let uid: string | null = null;
-
-    if (sender === 'OPERATOR') {
-      uid = await getAuthUid(supabaseClient);
-      if (!uid) throw new Error('Sem sessão do Supabase Auth. Faça login novamente.');
-    } else {
-      // CLIENT no portal: usa o próprio profileId como sender_user_id (seu modelo atual)
-      uid = profileId;
-    }
+    // ✅ Validação de Identidade: Garante que temos um autor para a mensagem
+    // Se for OPERATOR, o clientId (passado pelo adapter como myId) deve ser o perfis.id
+    // Se for CLIENT, o clientId deve ser o ID do cliente/devedor
+    const uid = clientId || profileId; 
 
     let filePath: string | null = null;
     let finalMeta: any = metadata || {};
@@ -197,7 +201,13 @@ export const supportChatService = {
         contentType: file.type || 'application/octet-stream',
       });
 
-      if (upErr) throw new Error(`Storage upload falhou: ${upErr.message}`);
+      if (upErr) {
+        console.error('[Storage Error]', upErr);
+        if (upErr.message.includes('row-level security policy')) {
+          throw new Error(`Este canal não permite envio de arquivos no momento. Utilize o suporte via WhatsApp.`);
+        }
+        throw new Error(`Storage upload falhou: ${upErr.message}`);
+      }
 
       filePath = path;
 
@@ -220,12 +230,17 @@ export const supportChatService = {
       sender_type: sender,
       sender_user_id: uid || null,
 
-      text: text ?? null,
-      content: text ?? null,
+      text: text ?? (type === 'location' ? text : null),
+      content: text ?? (type === 'location' ? text : null),
 
-      type,
+      // ✅ Mapeia 'location' para 'text' no banco se necessário para evitar type_check fail
+      // Mantendo o tipo original no metadata para renderização se o banco aceitar
+      type: type === 'location' ? 'text' : type,
       file_url: filePath, // salva PATH (privado)
-      metadata: finalMeta,
+      metadata: {
+        ...(finalMeta || {}),
+        original_type: type
+      },
 
       operator_id: operatorId || null,
       read: false,
@@ -308,7 +323,7 @@ export const supportChatService = {
     try {
       const { data: messages, error } = await supabase
         .from('mensagens_suporte')
-        .select('id, loan_id, content, text, created_at, read, sender_type')
+        .select('id, loan_id, profile_id, content, text, created_at, read, sender_type')
         .order('created_at', { ascending: false })
         .limit(100);
 
@@ -318,16 +333,20 @@ export const supportChatService = {
       const loanIds = Array.from(new Set(messages.map((m: any) => m.loan_id).filter(isUUID)));
       if (loanIds.length === 0) return [];
 
-      const contractsMap = new Map<string, { name: string; clientId: string }>();
+      const contractsMap = new Map<string, { name: string; clientId: string; profileId: string }>();
 
       const { data: loans, error: loansError } = await supabase
         .from('contratos')
-        .select('id, debtor_name, client_id')
+        .select('id, debtor_name, client_id, profile_id')
         .in('id', loanIds);
 
       if (!loansError && loans) {
         loans.forEach((l: any) =>
-          contractsMap.set(l.id, { name: l.debtor_name || 'Cliente', clientId: l.client_id })
+          contractsMap.set(l.id, { 
+            name: l.debtor_name || 'Cliente', 
+            clientId: l.client_id,
+            profileId: l.profile_id 
+          })
         );
       }
 
@@ -336,20 +355,25 @@ export const supportChatService = {
       for (const m of messages) {
         const anyMsg = m as any;
         const loanId = anyMsg.loan_id;
+        const msgProfileId = anyMsg.profile_id;
 
         let contractInfo = contractsMap.get(loanId);
         
-        // Se não achou contrato, pode ser Suporte Direto (loanId == profileId)
+        // Se não achou contrato, pode ser Suporte Direto (loanId == profileId do cliente ou algo do tipo)
         if (!contractInfo) {
-          // Tenta carregar informações do perfil como fallback (opcional: o ideal seria um map pré-carregado de perfis também)
-          // Para evitar N+1 aqui, por enquanto vamos apenas identificar como "Suporte Direto"
-          contractInfo = { name: 'Suporte Direto', clientId: loanId };
+          // Fallback seguro: usa o profile_id da própria mensagem, que sabemos ser válido (FK check passou no insert)
+          contractInfo = { 
+            name: 'Suporte Direto', 
+            clientId: msgProfileId, 
+            profileId: msgProfileId 
+          };
         }
 
         if (!chatsMap.has(loanId)) {
           chatsMap.set(loanId, {
             loanId,
             clientId: contractInfo.clientId,
+            profileId: contractInfo.profileId, // ID do profissional/tenant
             clientName: contractInfo.name,
             timestamp: anyMsg.created_at,
             lastMessage: anyMsg.content || anyMsg.text || 'Mídia enviada',
@@ -387,6 +411,7 @@ export const supportChatService = {
     return (data || []).map((c: any) => ({
       loanId: c.id,
       clientId: c.client_id,
+      profileId: c.profile_id,
       clientName: c.debtor_name || 'Sem Nome',
       debtorDocument: c.debtor_document,
       type: 'CLIENT',

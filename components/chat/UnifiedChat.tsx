@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { ChatAdapter, ChatRole } from './chatAdapter';
 import { useUnifiedChat } from './useUnifiedChat';
 import { ChatMessages } from '../../features/support/components/ChatMessages';
 import { ChatInput } from '../../features/support/components/ChatInput';
 import { Loader2, MessageCircle, ShieldCheck, Lock, Unlock, Trash2, ChevronLeft } from 'lucide-react';
+import { useModal } from '../../contexts/ModalContext';
 
 export interface UnifiedChatProps<TContext> {
   adapter: ChatAdapter<TContext>;
@@ -44,6 +45,20 @@ export function UnifiedChat<TContext>({
     toggleTicket
   } = useUnifiedChat({ adapter, context, role, userId });
 
+  const { showToast } = useModal();
+
+  const displayTitle = title || headerInfo?.title || 'Chat';
+  const displaySubtitle = subtitle || headerInfo?.subtitle || '';
+
+  const initials = useMemo(() => {
+    if (!displayTitle || displayTitle === 'Chat') return 'CF';
+    const parts = displayTitle.trim().split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) {
+      return (parts[0].charAt(0) + parts[1].charAt(0)).toUpperCase();
+    }
+    return displayTitle.charAt(0).toUpperCase();
+  }, [displayTitle]);
+
   if (isLoading) {
     return (
       <div className="flex-1 flex items-center justify-center bg-slate-900">
@@ -51,9 +66,6 @@ export function UnifiedChat<TContext>({
       </div>
     );
   }
-
-  const displayTitle = title || headerInfo?.title || 'Chat';
-  const displaySubtitle = subtitle || headerInfo?.subtitle || '';
 
   return (
     <div className={`flex-1 flex flex-col relative min-h-0 overflow-hidden ${chatTheme === 'blue' ? 'bg-slate-900/50' : 'bg-slate-900'}`}>
@@ -74,7 +86,7 @@ export function UnifiedChat<TContext>({
           )}
           <div className="relative group">
             <div className="w-12 h-12 rounded-[1.2rem] bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-white font-black shrink-0 shadow-xl shadow-blue-500/20 group-hover:scale-105 transition-transform">
-              {displayTitle.charAt(0)}
+              {initials}
             </div>
             {features.hasPresence && (
               <div className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full border-2 border-slate-950 shadow-lg ${isOnline ? 'bg-emerald-500' : 'bg-slate-600'}`} />
@@ -131,10 +143,17 @@ export function UnifiedChat<TContext>({
       </div>
 
       {/* Input */}
-      <div className="p-4 sm:p-6 bg-transparent relative z-20">
+      <div className="p-4 sm:p-6 bg-transparent relative z-40">
           <ChatInput 
             onSend={async (text, type, file, meta) => {
-                await sendMessage(text, type as any, file, meta);
+                console.log('[UnifiedChat] Attempting to send message:', { type, textLength: text.length });
+                try {
+                  await sendMessage(text, type as any, file, meta);
+                  console.log('[UnifiedChat] Message sent successfully');
+                } catch (e: any) {
+                  console.error('[UnifiedChat] Send message failed:', e);
+                  showToast(e.message || 'Erro ao enviar mensagem', 'error');
+                }
             }}
             isUploading={isUploading}
             placeholder={ticketStatus === 'CLOSED' ? 'Atendimento encerrado' : 'Digite sua mensagem...'}

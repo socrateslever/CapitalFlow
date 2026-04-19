@@ -46,7 +46,7 @@ export interface CapitalSource {
 
 export type SortOption = 'RECENT' | 'NAME' | 'VALUE' | 'STATUS' | 'DUE_DATE_ASC' | 'NAME_ASC' | 'CREATED_DESC' | 'UPDATED_DESC';
 
-export type AppTab = 'DASHBOARD' | 'CLIENTS' | 'LEGAL' | 'SOURCES' | 'PROFILE' | 'TEAM' | 'LEADS' | 'ACQUISITION' | 'SETTINGS' | 'CONTRACT_DETAILS' | 'AGENDA' | 'SIMULATOR' | 'FLOW' | 'LEGAL_DOCUMENT_EDITOR' | 'EXTRATO' | 'SUPPORT';
+export type AppTab = 'DASHBOARD' | 'CLIENTS' | 'LEGAL' | 'SOURCES' | 'PROFILE' | 'TEAM' | 'LEADS' | 'ACQUISITION' | 'SETTINGS' | 'CONTRACT_DETAILS' | 'AGENDA' | 'SIMULATOR' | 'FLOW' | 'LEGAL_DOCUMENT_EDITOR' | 'EXTRATO' | 'SUPPORT' | 'REPORTS';
 
 export type LoanBillingModality =
   | 'MONTHLY'
@@ -246,6 +246,7 @@ export interface Loan {
   id: string;
   clientId: string;
   profile_id: string;
+  profileId?: string; // Adicionado para compatibilidade camelCase
   owner_id?: string;
   operador_responsavel_id?: string;
   debtorName: string;

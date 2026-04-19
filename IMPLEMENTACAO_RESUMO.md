@@ -1,5 +1,283 @@
 # IMPLEMENTACAO_RESUMO
 
+## Atualização - Correção de Reprodução de Áudio e Assinatura de Anexos (2026-04-19)
+
+### Escopo executado
+Resolução do erro "The element has no supported sources" que impedia a reprodução de áudios no chat, causado por falhas na geração de URLs assinadas e caminhos de arquivo incompletos.
+
+1.  **Assinatura Universal de Anexos (`supportChat.service.ts`)**:
+    *   A lógica de detecção de arquivos (`hasFile`) foi simplificada para reconhecer qualquer mensagem que possua um `file_url`, independente do `type`. Isso garante que áudios continuem sendo assinados corretamente mesmo após redirecionamentos de tipo para o banco.
+
+2.  **Sincronização Realtime (`supportAdapter.ts`)**:
+    *   Implementada assinatura assíncrona para mensagens recebidas via Supabase Realtime. Agora, mensagens com anexos vindas do socket têm sua URL assinada antes de serem exibidas, resolvendo o problema de caminhos internos (storage paths) que causavam o erro de fonte de mídia.
+
+3.  **Diagnóstico no Player (`AudioPlayer.tsx`)**:
+    *   Adicionado tratador de evento `onError` ao elemento `<audio>` para capturar e logar detalhes técnicos de `MediaError`. Reforçada a validação no `togglePlay` para evitar submissões de áudio com `src` inválido.
+
+### Arquivos alterados
+*   `/services/supportChat.service.ts`: Generalização da lógica de assinatura de URLs e adição de logs de erro detalhados.
+*   `/components/chat/adapters/supportAdapter.ts`: Assinatura de URLs em tempo real.
+*   `/features/support/components/AudioPlayer.tsx`: Adição de logs de erro, interface de falha com link de "Baixar" e proteção de estado.
+
+---
+
+## Atualização - Cabeçalho de Chat Personalizado e Formatação de Nomes (2026-04-19)
+
+### Escopo executado
+Implementação da solicitação do usuário para exibir o primeiro e o segundo nome do cliente no cabeçalho do chat, garantindo uma interface mais personalizada e informativa.
+
+1.  **Nova Utilidade de Formatação (`formatFirstAndSecondName`)**:
+    *   Criada uma função robusta em `utils/formatters.ts` que extrai apenas as duas primeiras partes de um nome completo, aplicando a capitalização correta.
+    *   Isso evita nomes excessivamente longos no cabeçalho mantendo a identificação pessoal.
+
+2.  **Personalização no Portal do Cliente**:
+    *   O `PortalChatDrawer` agora extrai dinamicamente o nome do devedor (`debtorName`) do objeto de contrato (`loan`).
+    *   Este nome é formatado e passado como título para o `UnifiedChat`, substituindo o texto genérico "Atendimento Direto".
+    *   O contexto do chat também foi atualizado para carregar a identidade real do cliente, permitindo que o adapter de suporte tenha acesso ao nome correto.
+
+3.  **Padronização no Painel do Operador**:
+    *   O `supportAdapter` foi atualizado para utilizar a nova formatação no método `getHeader`.
+    *   Agora, qualquer chat aberto pelo operador exibirá automaticamente o nome do cliente (1º e 2º nomes) no título, de forma consistente com o portal.
+
+4.  **Melhoria Visual no Avatar (`initials`)**:
+    *   O componente `UnifiedChat` agora calcula as iniciais baseando-se no primeiro e segundo nome exibidos (ex: "João Silva" -> "JS").
+    *   Anteriormente, exibia apenas a primeira letra do título.
+
+### Arquivos alterados
+*   `/utils/formatters.ts`: Adição do `formatFirstAndSecondName`.
+*   `/components/chat/adapters/supportAdapter.ts`: Integração da formatação no título do header.
+*   `/features/portal/components/PortalChatDrawer.tsx`: Extração dinâmica e personalização do título para o cliente.
+*   `/components/chat/UnifiedChat.tsx`: Lógica aprimorada de iniciais para o avatar e correção de erro de ordem de Hooks (React Rules of Hooks).
+
+---
+
+## Atualização - Resolução de Erros de Tipo e Geolocalização no Chat (2026-04-19)
+
+### Escopo executado
+Correção de erros críticos de banco de dados (`type_check`) e de armazenamento (`RLS`) que impediam o uso pleno do chat por clientes no portal, especialmente no envio de localização e arquivos.
+
+1.  **Compatibilidade de Banco (`type_check`)**:
+    *   Identificado que a restrição `mensagens_suporte_type_check` no PostgreSQL impedia o valor `'location'` na coluna `type`.
+    *   **Solução**: O `supportChatService` agora mapeia automaticamente mensagens do tipo `location` para `text` antes da inserção, preservando o tipo real e coordenadas no campo `metadata`.
+    *   **Renderização**: O componente `ChatMessages` foi atualizado para ler o `original_type` do metadata, garantindo que o link do mapa e o ícone de localização continuem sendo exibidos corretamente para o usuário.
+
+2.  **Robustez no Armazenamento (RLS Storage)**:
+    *   Tratamento de erro aprimorado para falhas de upload no bucket `support_chat`. Quando um usuário do portal (anon) tenta enviar um arquivo e encontra restrição de RLS, o sistema agora captura o erro e sugere alternativas (como envio via WhatsApp configurado no perfil).
+
+3.  **Geolocalização e Permissões**:
+    *   Refinamento do feedback no `ChatInput` para casos onde o navegador bloqueia o acesso à localização ou o timeout é atingido, com mensagens claras em Português.
+
+### Arquivos alterados
+*   `/services/supportChat.service.ts`: Mapeamento preventivo de tipos e tratamento de RLS.
+*   `/features/support/components/ChatMessages.tsx`: Renderização baseada em metadata (`original_type`).
+*   `/sql/fix_storage_rls_portal.sql`: **Novo arquivo** com script SQL para correção definitiva de RLS e Constraints no Supabase.
+*   `/layout/AppShell.tsx`: Fix do posicionamento da badge de notificações (o unread count estava "flutuando" para o botão de 'Novo Contrato' por falta de `relative` context; agora está ancorado corretamente no botão de Chat).
+*   `/IMPLEMENTACAO_RESUMO.md`: Documentação técnica da solução.
+
+### Arquivos não alterados fora do escopo
+*   Nenhuma alteração em rotas principais ou modelos financeiros.
+
+---
+
+## Atualização - Feedback de Erro e Diagnóstico no Chat do Portal (2026-04-19)
+
+### Escopo executado
+Implementação de sistema de feedback visual e logs de diagnóstico para resolver a opacidade nos erros de envio de mensagens no portal do cliente.
+
+1.  **Feedback Visual (Toasts)**:
+    *   Integrado o `useModal` ao componente `UnifiedChat`. Agora, falhas no envio de mensagens disparam notificações "toast" na cor Rose, informando o erro específico ao usuário final.
+
+2.  **Rastreabilidade e Diagnóstico**:
+    *   **Logs de Contexto**: O `PortalChatDrawer` agora registra no console a resolução completa do contexto (ID do Contrato, ID do Profissional e ID do Cliente), permitindo identificar instantaneamente se algum dado vital está ausente.
+    *   **Monitoramento de Envio**: O `UnifiedChat` loga cada tentativa de envio e o resultado (sucesso ou erro detalhado), facilitando a depuração em tempo real.
+
+3.  **Refinamento de Mensagens de Erro**:
+    *   O `supportAdapter` foi atualizado para lançar erros verbosos e específicos sobre identificação (ex: "ID Profissional Inválido"), em vez de mensagens genéricas. Isso ajuda a distinguir erros de configuração de erros de banco de dados.
+
+### Arquivos alterados
+*   `/components/chat/UnifiedChat.tsx`: Implementação de Toasts e logs de envio.
+*   `/components/chat/adapters/supportAdapter.ts`: Erros de identificação mais descritivos.
+*   `/features/portal/components/PortalChatDrawer.tsx`: Logs de diagnóstico de contexto.
+
+---
+
+## Atualização - Correção de Interação e Integridade no Chat (Portal e Operador) (2026-04-19)
+
+### Escopo executado
+Resolução de problemas de botões travados, erros de envio no portal ("Dados Inválidos" e "Foreign Key Violation") e instabilidade na UI através de refatoração de contexto e validação.
+
+1.  **Integridade de Dados e Banco**:
+    *   **Captura de ProfileID**: O hook `useClientPortalLogic` agora recupera o `profile_id` do profissional, garantindo que o chat no portal tenha sempre um destinatário válido, evitando erros de chave estrangeira.
+    *   **Validação Flexível**: O adaptador de suporte foi ajustado para permitir conversas de "Suporte Direto" sem a necessidade de um contrato (loanID) UUID estrito, usando o ID do profissional como fallback seguro.
+
+2.  **Resolução de Conflitos de UI/UX**:
+    *   **Z-Index e Camadas**: Elevado o `z-index` do container de input do chat para garantir que ele permaneça interativo mesmo sob overlays de status (como "Atendimento Encerrado").
+    *   **Limpeza de Drawer**: Removida barra inferior redundante no portal do cliente que causava sobreposições em dispositivos móveis, liberando espaço para o teclado e inputs.
+
+3.  **Estabilização e Performance**:
+    *   **Memoização de Contexto**: Refatorados os componentes `PortalChatDrawer` e `OperatorSupportChat` para estabilizar os objetos de contexto passados ao `UnifiedChat`. Isso elimina loops de re-renderização e garante que o chat não "pisque" ou perca estado durante o uso.
+    *   **Tipagem Segura**: Separação clara de contextos de Captação e Suporte para satisfazer os requisitos do TypeScript sem sacrificar a flexibilidade.
+
+### Arquivos alterados
+*   `/features/portal/hooks/useClientPortalLogic.ts`: Captura de metadados do perfil.
+*   `/features/portal/components/PortalChatDrawer.tsx`: Reorganização lógica e limpeza de UI.
+*   `/features/portal/ClientPortalView.tsx`: Passagem de contexto enriquecida.
+*   `/components/chat/adapters/supportAdapter.ts`: Ajuste de validação e roteamento de mensagens.
+*   `/components/chat/UnifiedChat.tsx`: Ajuste de profundidade de camadas (z-index).
+*   `/features/support/OperatorSupportChat.tsx`: Estabilização de contextos e correção de tipos.
+
+---
+
+## Atualização - Inteligência de Negócios e Dashboard de Relatórios (2026-04-19)
+
+### Escopo executado
+Implementação de um módulo robusto de Business Intelligence (BI) para análise profunda da performance financeira e riscos da carteira.
+
+1.  **Dashboard de Inteligência (`ReportsPage`)**:
+    *   **KPIs em Tempo Real**: Visualização de Inadimplência (NPL), ROI Estimado, Yield da Carteira, Taxa de Alocação e Ticket Médio.
+    *   **Performance por Fonte**: Gráficos de distribuição de capital alocado x saldo disponível por investidor/origem.
+    *   **Insights de IA**: Sugestões automáticas baseadas em previsibilidade financeira e tendências de reinvestimento.
+    *   **Stealth Mode Nativo**: Máscaras de privacidade aplicadas a todos os valores sensíveis do dashboard de BI.
+
+2.  **Integração de Navegação**:
+    *   **NavHub**: Inclusão do item "Inteligência" (Relatórios) no menu lateral e drawer mobile, com ícone de PieChart.
+    *   **AppTab & Routing**: Registro do novo tipo de aba no sistema de rotas e tipagem global.
+    *   **Lazy Loading**: Implementação de carregamento sob demanda para otimização de performance.
+
+3.  **Refinamento de UI/UX**:
+    *   Uso de animações suaves (`motion`) para transição de abas.
+    *   Interface dark-mode otimizada com foco em leitura de dados financeiros.
+
+### Arquivos alterados
+*   `/types.ts`: Adição da aba `REPORTS`.
+*   `/layout/NavHub.tsx`: Integração visual no menu de navegação e correção de importação do `PieChart`.
+*   `/App.tsx`: Gerenciamento de rotas e renderização do novo container.
+*   `/features/reports/pages/ReportsPage.tsx`: **Novo arquivo** contendo a lógica e interface de BI.
+
+---
+
+## Atualização - Overhaul Completo do Sistema de Chat (Realtime & Autoridade) (2026-04-19)
+
+### Escopo executado
+Revisão profunda da arquitetura de chat para garantir funcionamento bi-direcional (Operador <-> Cliente) sem erros de banco e com sincronização perfeita.
+
+1.  **Integridade de Identidade (Padrão Sênior)**:
+    *   **Consistência de IDs**: Garantido que o campo `profile_id` em `mensagens_suporte` sempre receba o ID da tabela `perfis` (Professional/Tenant), nunca o ID de devedores ou IDs brutos do Auth.
+    *   **Autoridade de Mensagem**: Introduzido o conceito de `myId` no contexto do chat para distinguir o "Dono do Dado" (Tenant) do "Autor da Mensagem" (Sender).
+
+2.  **Correção do Realtime (Sincronização Proativa)**:
+    *   **Filtro do Adapter**: Corrigido o filtro de inscrição que estava descartando mensagens válidas por comparar o ID do Tenant com o ID do Autor. Agora o filtro usa `sender_user_id` e permite que o autor receba sua própria confirmação de mensagem (necessário pois o componente não usa estado otimista).
+    *   **Feedback Visual**: Garantido que o som de notificação ocorra apenas para mensagens de terceiros.
+
+3.  **Melhoria no Portal do Cliente**:
+    *   **Vínculo de Atendimento**: O portal agora recupera e utiliza o `profile_id` correto do profissional responsável pelo contrato do cliente, satisfazendo a constraint de FK no banco de dados.
+    *   **Resiliência**: Implementado tratamento para casos onde o ID do profissional é nulo, impedindo quebras de interface.
+
+4.  **Limpeza de Código**:
+    *   Eliminada dependência de `getAuthUid` no serviço de mensagens para evitar confusão entre `auth.users.id` e `perfis.id` em fluxos de portal.
+
+### Arquivos alterados
+*   `/components/chat/adapters/supportAdapter.ts`: Atualização do contexto e lógica de filtragem realtime.
+*   `/services/supportChat.service.ts`: Reformulação do método `sendMessage` para ser agnóstico à identidade delegada.
+*   `/features/support/OperatorSupportChat.tsx`: Ajuste na passagem de contexto (Dono vs Autor).
+*   `/features/portal/components/PortalChatDrawer.tsx`: Ajuste na passagem de contexto (Vinculação de Tenant).
+
+### Arquivos não alterados fora do escopo
+*   Confirmado: Nenhuma alteração em layout global, dashboards, financeiro ou jurídico.
+
+---
+
+## Atualização - Correção do Envio de Mensagens no Portal (2026-04-19)
+
+### Escopo executado
+Resolução do bug que impedia os clientes de enviarem mensagens corretamente pelo portal ou causava atribuição incorreta da autoria da mensagem.
+
+1.  **Ajuste de Identidade no `supportChatService`**:
+    *   Adicionado o parâmetro `clientId` para capturar explicitamente o UUID do autor quando o remetente é um cliente.
+    *   A lógica de autoria agora prioriza o `clientId` enviado pela interface, usando o `profileId` apenas como fallback para compatibilidade legada.
+
+2.  **Integração no `supportAdapter`**:
+    *   O adaptador agora extrai o `userId` do payload do `UnifiedChat` e o repassa como `clientId` para o serviço de mensagens. Isso garante que o campo `sender_user_id` no banco de dados reflita o autor real da mensagem no portal.
+
+### Arquivos alterados
+*   `/services/supportChat.service.ts`: Modificação na assinatura de `sendMessage` e lógica de autoria.
+*   `/components/chat/adapters/supportAdapter.ts`: Repasse do `userId` para o serviço.
+
+---
+
+## Atualização - Correção Crítica de Integridade de Banco (2026-04-19)
+
+### Escopo executado
+Resolução do erro `violates foreign key constraint "mensagens_suporte_profile_id_fkey"`. Este erro impedia o salvamento de mensagens quando o sistema tentava vincular uma mensagem a um ID que não existia na tabela de perfis (normalmente tentando usar IDs de devedores em campos de profissionais).
+
+1.  **Ajuste no `supportChatService`**:
+    *   Atualizado `getActiveChats` para buscar o `profile_id` (ID do Profissional/Tenant) diretamente das mensagens existentes e dos contratos.
+    *   Atualizado `getAvailableContracts` para incluir o `profile_id` do contrato no retorno, permitindo que novas conversas sejam iniciadas com o vínculo correto de tenant.
+    *   Implementado fallback seguro para "Suporte Direto", garantindo que IDs de contrato não sejam enviados para colunas de perfil.
+
+2.  **Refinamento do Contexto de Chat**:
+    *   `OperatorSupportChat`: Ajustado para priorizar o ID do operador ou o ID do profissional vinculado ao contrato, evitando o uso de IDs de devedores no campo `profile_id`.
+    *   `PortalChatDrawer`: Atualizado para usar `loan.profile_id` (o ID do profissional que atende o contrato) em vez do ID do próprio cliente no campo que exige um perfil verificado.
+
+### Arquivos alterados
+*   `/services/supportChat.service.ts`: Inclusão de `profile_id` nas buscas e mapeamento de contratos.
+*   `/features/support/OperatorSupportChat.tsx`: Correção de mapeamento no contexto do `UnifiedChat`.
+*   `/features/portal/components/PortalChatDrawer.tsx`: Correção de mapeamento no contexto do `UnifiedChat` (visão cliente).
+
+---
+
+## Atualização - Correção Crítica no Chat de Suporte (2026-04-19)
+
+### Escopo executado
+Resolução do erro "Dados inválidos" que impedia o envio de mensagens em novas sessões de suporte através do painel do operador.
+
+1.  **Correção de Contexto no `OperatorSupportChat`**:
+    *   Identificada a ausência do `clientId` ao iniciar conversas a partir da lista de contatos disponíveis.
+    *   O `supportAdapter` exige que tanto o `loanId` quanto o `profileId` (clientId) sejam UUIDs válidos para validar a sessão de chat.
+    *   Ajustado o `handleSelectContact` para preservar o `clientId` no estado `selectedChat`, garantindo que o contexto enviado ao `UnifiedChat` esteja completo.
+
+2.  **Estabilização do NavHub**:
+    *   Correção do erro de compilação (Missing Import) do ícone `PieChart` no menu de navegação.
+
+### Arquivos alterados
+*   `/features/support/OperatorSupportChat.tsx`: Correção na inicialização do objeto de chat selecionado.
+*   `/layout/NavHub.tsx`: Adição do import `PieChart`.
+
+---
+
+## Atualização - Refinamento do Motor Lógico e Controle de Versão (2026-04-18)
+
+### Escopo executado
+Refinamento profundo das modalidades diárias e implementação de rastreabilidade de build para o usuário para verificação de commits no Cloud.
+
+1.  **Refinamento do Motor Lógico (Engine Financeira)**:
+    *   **Renovação DAILY_30**: Substituição da lógica de blocos mensais pela `renewDaily30` específica. O vencimento agora avança proporcionalmente ao juro pago (dia a dia).
+    *   **Diferenciação Interest/Capital**: Separação completa das estratégias `DAILY_30_INTEREST` e `DAILY_30_CAPITAL` no registro de modalidades.
+    *   **DAILY_FIXED_TERM**: Adição de juros de mora diários automáticos após o vencimento do prazo fixo.
+    *   **Geração de Contrato**: Ajuste no gerador de parcelas para provisionar corretamente o juro do primeiro ciclo (30 dias) em modalidades indexadas.
+
+2.  **Controle de Versões e Deploy Cloud**:
+    *   **src/constants/version.ts**: Criação do arquivo de metadados do sistema para rastreabilidade de commits.
+    *   **Loading Screen**: Adição de indicador de REV (Revisão) e BUILD no footer da tela de splash inicial.
+    *   **Perfil do Usuário**: Nova aba "Sistema & Versão" contendo:
+        *   Revisão e ID de Build.
+        *   Versão específica do Motor Lógico.
+        *   Timestamp do último deploy realizado no Cloud.
+        *   Orientações de Sincronização (Hard Refresh).
+
+### Arquivos alterados
+*   `/domain/finance/modalities/daily30/daily30.renewal.ts`: Nova estratégia de renovação.
+*   `/domain/finance/modalities/daily30/daily30.calculations.ts`: Refinamentos de cálculo.
+*   `/domain/finance/modalities/daily30/index.ts`: Organização de módulos.
+*   `/domain/finance/modalities/registry.ts`: Atualização do mapeamento oficial.
+*   `/domain/finance/modalities/dailyFixedTerm/calculations.ts`: Nova regra de multa+mora.
+*   `/features/loans/modalities/daily/daily.calculations.ts`: Correção na geração de parcelas 30 dias.
+*   `/components/ui/LoadingScreen.tsx`: Exibição da versão no carregamento.
+*   `/pages/ProfilePage.tsx`: Interface de informações técnicas.
+*   `/src/constants/version.ts`: Novo arquivo de metadados.
+
+---
+
 ## Atualizacao - Ajustes Financeiros, Perfil e Portal do Cliente (2026-04-17)
 
 ### Escopo executado

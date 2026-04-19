@@ -311,7 +311,11 @@ export const ClientPortalView = ({ initialPortalToken, initialPortalCode }: { in
 
       {/* DRAWER CHAT (Contextualizado) */}
       <PortalChatDrawer 
-          loan={activeLoanForChat} 
+          loan={activeLoanForChat ? {
+              ...activeLoanForChat,
+              clientProfileId: loggedClient?.profileId,
+              loggedClientId: loggedClient?.id
+          } : null} 
           isOpen={!!activeLoanForChat} 
           onClose={() => setActiveLoanForChat(null)} 
       />

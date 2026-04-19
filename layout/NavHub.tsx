@@ -1,6 +1,6 @@
 
 import React, { useRef, useState } from 'react';
-import { LayoutGrid, X, User, Calendar, Calculator, ArrowRightLeft, Shield, Scale, Wallet, Briefcase, Users, LayoutDashboard, PiggyBank, Settings, MessageCircle, Megaphone, MenuSquare } from 'lucide-react';
+import { LayoutGrid, X, User, Calendar, Calculator, ArrowRightLeft, Shield, Scale, Wallet, Briefcase, Users, LayoutDashboard, PiggyBank, Settings, MessageCircle, Megaphone, MenuSquare, PieChart } from 'lucide-react';
 import { AppTab, UserProfile } from "../types";
 
 interface NavHubProps {
@@ -55,6 +55,7 @@ export const NavHub: React.FC<NavHubProps> = ({ onClose, onNavigate, userLevel, 
             case 'SETTINGS': return { icon: <Settings size={20}/>, label: 'Ajustes', color: 'text-slate-400', hover: 'hover:border-slate-500' };
             case 'LEADS': return { icon: <MessageCircle size={20}/>, label: 'Leads', color: 'text-green-500', hover: 'hover:border-green-600' };
             case 'ACQUISITION': return { icon: <Megaphone size={20}/>, label: 'Captação', color: 'text-orange-500', hover: 'hover:border-orange-600' };
+            case 'REPORTS': return { icon: <PieChart size={20}/>, label: 'Inteligência', color: 'text-indigo-400', hover: 'hover:border-indigo-500' };
             default: return { icon: <LayoutGrid size={20}/>, label: tab, color: 'text-slate-500', hover: 'hover:border-slate-600' };
         }
     };
@@ -65,8 +66,9 @@ export const NavHub: React.FC<NavHubProps> = ({ onClose, onNavigate, userLevel, 
         tab !== 'DASHBOARD' && 
         tab !== 'TEAM' && 
         tab !== 'ACQUISITION' &&
-        tab !== 'AGENDA'
-    )];
+        tab !== 'AGENDA' &&
+        tab !== 'REPORTS'
+    ), 'REPORTS' as AppTab];
 
     return (
         <div 

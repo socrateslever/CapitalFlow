@@ -94,7 +94,9 @@ export const ChatMessages: React.FC<ChatMessagesProps> = ({
   };
 
   const renderContent = (m: SupportMessage) => {
-    switch (m.type) {
+    const effectiveType = (m.metadata?.original_type as string) || m.type;
+
+    switch (effectiveType) {
       case 'image':
         return (
           <div className="mt-1 mb-1">

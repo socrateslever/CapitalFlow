@@ -162,3 +162,11 @@ export const formatShortName = (name: string | undefined | null): string => {
   // Return first and last name
   return `${parts[0]} ${parts[parts.length - 1]}`;
 };
+
+export const formatFirstAndSecondName = (name: string | undefined | null): string => {
+  if (!name) return '';
+  const capitalized = capitalizeName(name);
+  const parts = capitalized.split(/\s+/);
+  if (parts.length <= 1) return capitalized;
+  return `${parts[0]} ${parts[1]}`;
+};

@@ -4,6 +4,19 @@ import { Agreement, AgreementInstallment, Installment, Loan, LoanStatus } from '
 import { asArray, asNumber, asString, safeDateString } from '../../utils/safe';
 
 /**
+ * Normaliza o status do Contrato (Loan) para o enum do frontend.
+ */
+function normalizeLoanStatus(statusRaw: unknown): LoanStatus {
+  const s = asString(statusRaw).toUpperCase().trim();
+  if (!s) return LoanStatus.ATIVO;
+  if (['ATIVO', 'ACTIVE', 'OPEN', 'ABERTO'].includes(s)) return LoanStatus.ATIVO;
+  if (['PAGO', 'PAID', 'QUITADO', 'FINALIZADO'].includes(s)) return LoanStatus.PAGO;
+  if (['CANCELADO', 'CANCELLED'].includes(s)) return LoanStatus.CANCELADO;
+  if (['ATRASADO', 'LATE', 'OVERDUE'].includes(s)) return LoanStatus.ATRASADO;
+  return LoanStatus.ATIVO;
+}
+
+/**
  * Normaliza status de acordo (banco) para o padrão esperado pelo frontend.
  */
 function normalizeAgreementStatus(statusRaw: unknown): 'ACTIVE' | 'PAID' | 'BROKEN' {
@@ -132,9 +145,10 @@ export function mapLoanFromDB(
     id: asString(l?.id),
 
     // necessário p/ PIX/Portal (Realtime/RLS e criação de charge)
-    profile_id: asString(l?.profile_id ?? l?.profileId),
+    profile_id: asString(l?.profile_id ?? l?.profileId ?? l?.owner_id ?? l?.ownerId) || l?.profile_id || l?.profileId || null,
+    profileId: asString(l?.profile_id ?? l?.profileId ?? l?.owner_id ?? l?.ownerId) || l?.profile_id || l?.profileId || null,
 
-    clientId: asString(l?.client_id ?? l?.clientId),
+    clientId: asString(l?.client_id ?? l?.clientId ?? l?.clientID) || null,
     debtorName: asString(l?.debtor_name ?? l?.debtorName),
     debtorPhone: asString(l?.debtor_phone ?? l?.debtorPhone),
     debtorDocument: asString(l?.debtor_document ?? l?.debtorDocument),
@@ -190,6 +204,8 @@ export function mapLoanFromDB(
     portalShortcode: asString(l?.portal_shortcode ?? l?.portalShortcode),
 
     supportPhone: asString(l?.support_phone ?? l?.supportPhone),
+
+    status: normalizeLoanStatus(l?.status),
 
     activeAgreement,
   } as Loan;

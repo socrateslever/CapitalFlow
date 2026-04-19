@@ -26,6 +26,7 @@ import {
 
 import type { AppTab, Loan, UserProfile, Client, CapitalSource } from '../types';
 import { maskDocument, maskPhone } from '../utils/formatters';
+import { SYSTEM_VERSION } from '../src/constants/version';
 
 import { useProfilePageLogic } from '../features/profile/hooks/useProfilePageLogic';
 import { ProfileAuditLog } from '../features/profile/components/ProfileAuditLog';
@@ -81,7 +82,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   const { backupRestoreRef, auditLogs } = useProfilePageLogic(loans);
 
   const [activeSection, setActiveSection] = useState<
-    'GENERAL' | 'FINANCE' | 'PAYMENTS' | 'DATA' | 'INTERFACE' | 'SECURITY' | 'DANGER'
+    'GENERAL' | 'FINANCE' | 'PAYMENTS' | 'DATA' | 'INTERFACE' | 'SECURITY' | 'SYSTEM' | 'DANGER'
   >('GENERAL');
 
   const getTabLabel = (tab: AppTab) => {
@@ -272,6 +273,18 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
             >
               <Shield size={18} />{' '}
               <span className="font-bold text-xs uppercase">Segurança</span>
+            </button>
+
+            <button
+              onClick={() => setActiveSection('SYSTEM')}
+              className={`w-full p-4 rounded-xl flex items-center gap-3 transition-all ${
+                activeSection === 'SYSTEM'
+                  ? 'bg-slate-600 text-white shadow-lg'
+                  : 'bg-slate-950 text-slate-400 hover:bg-slate-800 hover:text-white'
+              }`}
+            >
+              <RefreshCw size={18} />{' '}
+              <span className="font-bold text-xs uppercase">Sistema & Versão</span>
             </button>
 
             <button
@@ -833,6 +846,68 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                 </h3>
               </div>
               <ProfileAuditLog logs={auditLogs} />
+            </div>
+          )}
+          
+          {/* SYSTEM */}
+          {activeSection === 'SYSTEM' && (
+            <div className="space-y-8 animate-in fade-in slide-in-from-right">
+              <div className="flex items-center gap-3 text-slate-400 mb-4">
+                <RefreshCw size={24} />
+                <h3 className="text-lg font-black uppercase">
+                  Informações de Build e Versão
+                </h3>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-slate-950 p-6 rounded-2xl border border-slate-800 space-y-4">
+                    <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Controle de Versão</h4>
+                    <div className="space-y-3">
+                        <div className="flex justify-between items-center py-2 border-b border-slate-900">
+                            <span className="text-xs font-bold text-slate-400">Revisão</span>
+                            <span className="text-xs font-black text-white px-2 py-1 bg-blue-600/20 text-blue-400 rounded-lg">{SYSTEM_VERSION.version}</span>
+                        </div>
+                        <div className="flex justify-between items-center py-2 border-b border-slate-900">
+                            <span className="text-xs font-bold text-slate-400">Build ID</span>
+                            <span className="text-xs font-black text-white font-mono">{SYSTEM_VERSION.build}</span>
+                        </div>
+                        <div className="flex justify-between items-center py-2">
+                            <span className="text-xs font-bold text-slate-400">Ambiente</span>
+                            <span className="text-xs font-black text-emerald-500 uppercase">{SYSTEM_VERSION.environment}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="bg-slate-950 p-6 rounded-2xl border border-slate-800 space-y-4">
+                    <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Motor Lógico</h4>
+                    <div className="space-y-3">
+                        <div className="flex justify-between items-center py-2 border-b border-slate-900">
+                            <span className="text-xs font-bold text-slate-400">Versão do Motor</span>
+                            <span className="text-xs font-black text-purple-400">{SYSTEM_VERSION.logicalMotor}</span>
+                        </div>
+                        <div className="flex justify-between items-center py-2">
+                            <span className="text-xs font-bold text-slate-400">Último Deploy Cloud</span>
+                            <span className="text-xs font-black text-slate-300">
+                                {new Date(SYSTEM_VERSION.lastDeploy).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+              </div>
+
+              <div className="bg-blue-600/10 border border-blue-500/20 p-6 rounded-2xl">
+                 <div className="flex gap-4">
+                    <div className="p-3 bg-blue-600/20 text-blue-400 rounded-xl h-fit">
+                        <Shield size={20} />
+                    </div>
+                    <div>
+                        <h4 className="text-xs font-black text-blue-400 uppercase tracking-widest mb-1">Status de Sincronização</h4>
+                        <p className="text-[10px] text-slate-400 leading-relaxed font-medium">
+                            Se as informações acima não baterem com as mudanças que você solicitou, tente fazer um <span className="text-blue-500 font-bold">Hard Refresh (Ctrl + F5)</span>. Isso garante que o navegador descarte o cache antigo e puxe a versão mais recente do Cloud Run.
+                        </p>
+                    </div>
+                 </div>
+              </div>
             </div>
           )}
 

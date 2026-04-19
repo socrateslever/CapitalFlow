@@ -57,10 +57,24 @@ export const useClientPortalLogic = (initialToken: string, initialCode: string) 
 
     try {
       const clientData = await portalService.fetchClientByPortal(initialToken, initialCode);
+      if (!clientData) throw new Error('Dados do cliente não encontrados.');
 
-      if (!clientData) {
-        throw new Error('Dados do cliente não encontrados.');
-      }
+      const rawContractsList = await portalService.fetchClientContractsByPortal(initialToken, initialCode);
+      const normalizedContractsList = Array.isArray(rawContractsList) ? rawContractsList : [];
+      
+      // ✅ Busca dados mais detalhados se existirem
+      const fullLoanData = await portalService.fetchFullLoanByPortal(initialToken, initialCode);
+
+      // ✅ Busca fallback de profileId se não veio no clientData
+      const fallbackProfileId = 
+        normalizedContractsList[0]?.profile_id || 
+        normalizedContractsList[0]?.profileId || 
+        normalizedContractsList[0]?.owner_id || 
+        normalizedContractsList[0]?.ownerId ||
+        fullLoanData?.profile_id ||
+        fullLoanData?.profileId ||
+        fullLoanData?.owner_id ||
+        fullLoanData?.ownerId;
 
       setLoggedClient({
         id: clientData.id,
@@ -68,13 +82,15 @@ export const useClientPortalLogic = (initialToken: string, initialCode: string) 
         document: clientData.document || '',
         phone: clientData.phone,
         email: clientData.email,
+        profileId: clientData.profile_id || clientData.profileId || clientData.owner_id || clientData.ownerId || fallbackProfileId, // ✅ Captura o ID do profissional com múltiplos fallbacks
+      });
+      console.log('[useClientPortalLogic] Data Load Complete:', { 
+        clientDataId: clientData.id, 
+        profileIdFound: clientData.profile_id || clientData.profileId || clientData.owner_id || clientData.ownerId || fallbackProfileId
       });
 
-      const rawContractsList = await portalService.fetchClientContractsByPortal(initialToken, initialCode);
-      const fullLoanData = await portalService.fetchFullLoanByPortal(initialToken, initialCode);
       const { installments, signals } = await portalService.fetchLoanDetailsByPortal(initialToken, initialCode);
 
-      const normalizedContractsList = Array.isArray(rawContractsList) ? rawContractsList : [];
       const primaryLoanId = fullLoanData?.id ?? normalizedContractsList[0]?.id ?? null;
 
       const hydratedContracts = normalizedContractsList

@@ -29,8 +29,8 @@ export const LocationButton: React.FC<Props> = ({ onSendLocation }) => {
       },
       (err) => {
         setLoading(false);
-        alert('Permissão de localização negada.');
-        console.error(err);
+        alert('Permissão de localização negada ou indisponível.');
+        console.error(`Geolocation error (${err.code}): ${err.message}`);
       },
       {
         enableHighAccuracy: true,
