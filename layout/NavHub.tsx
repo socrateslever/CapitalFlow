@@ -60,11 +60,9 @@ export const NavHub: React.FC<NavHubProps> = ({ onClose, onNavigate, userLevel, 
 
     const displayOrder = ['DASHBOARD' as AppTab, ...hubOrder.filter(tab => 
         tab !== 'DASHBOARD' && 
-        tab !== 'AGENDA' &&
         tab !== 'REPORTS' &&
-        tab !== 'ACQUISITION' && 
-        tab !== 'TEAM' &&
-        tab !== 'LEADS'
+        tab !== 'LEADS' &&
+        !['AGENDA', 'ACQUISITION', 'TEAM'].includes(tab as string)
     ), 'REPORTS' as AppTab];
 
     return (

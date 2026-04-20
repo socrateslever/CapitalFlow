@@ -217,6 +217,16 @@ export const useAppNotifications = ({
             addNotification({
                 title: 'Ação Jurídica Necessária',
                 message: `Contrato de ${loan.debtorName} está VENCIDO e sem assinatura.`,
+                type: 'warning',
+                item_type: 'documento',
+                item_id: loan.id,
+                metadata: { loan_id: loan.id }
+            });
+          }
+        }
+      )
+      .subscribe();
+
     return () => {
       supabase.removeChannel(channel);
     };
