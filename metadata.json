@@ -5,5 +5,6 @@
     "microphone",
     "geolocation"
   ],
-  "name": "CapitalFlow Novo"
+  "name": "CapitalFlow",
+  "majorCapabilities": []
 }
