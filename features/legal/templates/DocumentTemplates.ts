@@ -26,7 +26,7 @@ export const DocumentTemplates = {
 
             <p class="indent" style="margin-top: 30px;">As partes acima identificadas, de comum acordo, celebram este Instrumento Particular de Confissão de Dívida, o qual se regerá pelas seguintes cláusulas e condições:</p>
 
-            <p class="indent"><strong>CLÁUSULA PRIMEIRA - DO OBJETO E RECONHECIMENTO:</strong> O(A) <strong>DEVEDOR(A)</strong> reconhece e confessa ser devedor(a) ao <strong>CREDOR</strong> da quantia líquida, certa e exigível de <b>${formatMoney(data.totalDebt || data.amount)}</b> (<b>${numberToWordsBRL(data.totalDebt || data.amount)}</b>), referente a obrigações anteriormente assumidas.</p>
+            <p class="indent"><strong>CLÁUSULA PRIMEIRA - DO OBJETO E RECONHECIMENTO:</strong> O(A) <strong>DEVEDOR(A)</strong> reconhece e confessa ser devedor(a) ao <strong>CREDOR</strong> da quantia líquida, certa e exigível de <b>${formatMoney(data.totalDebt || data.amount)}</b> (<b>${numberToWordsBRL(data.totalDebt || data.amount)}</b>), referente a obrigações anteriormente assumidas, montante este que será adimplido de forma parcelada em ${data.installments?.length || 1} vezes.</p>
             
             <p class="indent"><strong>CLÁUSULA SEGUNDA - DA FORMA DE PAGAMENTO:</strong> O pagamento do débito reconhecido será realizado de forma <strong>PARCELADA (${data.billingCycle || 'MENSAL'})</strong>, em ${data.installments?.length} parcelas de ${formatMoney(data.installments?.[0]?.amount)}, conforme cronograma abaixo:</p>
             

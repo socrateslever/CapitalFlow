@@ -83,6 +83,7 @@ export const generateConfissaoDividaV2HTML = (
   let formaPagamento = "PAGAMENTO ÚNICO";
   let descricaoPagamento = `será quitado em <strong>PARCELA ÚNICA</strong>`;
   let npTypeDesc = " em parcela única";
+  let textoObjeto = `no valor total de <strong>${safeText(vm.totalDebt)} (${valorExtenso})</strong>.`;
 
   if (installmentsCount > 1) {
     const cycle = data.billingCycle === 'DAILY_FREE' ? 'ROTATIVO' : 'MENSAL';
@@ -91,6 +92,7 @@ export const generateConfissaoDividaV2HTML = (
     formaPagamento = `CRÉDITO PARCELADO (${cycle})`;
     descricaoPagamento = `será quitado de forma <strong>PARCELADA (${cycle})</strong>, em ${installmentsCount} parcelas sucessivas de ${valFormatado} (${valParcela})`;
     npTypeDesc = `, em ${installmentsCount} parcelas de ${valFormatado}`;
+    textoObjeto = `no valor total de <strong>${safeText(vm.totalDebt)} (${valorExtenso})</strong>, montante este que será adimplido de forma parcelada em ${installmentsCount} vezes.`;
   } else if (data.billingCycle === 'DAILY_FREE') {
     formaPagamento = `CRÉDITO ROTATIVO SOB DEMANDA`;
     descricaoPagamento = `será quitado sob o regime de <strong>CONTA-CORRENTE ROTATIVA</strong>, sem prazo de vencimento pré-fixado para o principal, incidindo encargos pro-rata die até a liquidação final. Os prazos de prestações indicados servem apenas para apuração e amortização periódica de juros`;
@@ -177,7 +179,7 @@ export const generateConfissaoDividaV2HTML = (
         <p><strong>DEVEDOR:</strong> ${safeText(vm.debtorName)}, ${safeText(vm.debtorNationality)}, ${safeText(vm.debtorMaritalStatus)}, ${safeText(vm.debtorProfession)}, portador do RG nº ${safeText(vm.debtorRG)} e CPF nº ${safeText(vm.debtorDoc)}, residente e domiciliado na ${safeText(vm.debtorAddress)}.</p>
 
         <h2>CLÁUSULA 1 - DO RECONHECIMENTO DA DÍVIDA</h2>
-        <p>O DEVEDOR declara e reconhece, de forma irrevogável e irretratável, que possui uma dívida líquida, certa e exigível com o CREDOR no valor total de <strong>${safeText(vm.totalDebt)} (${valorExtenso})</strong>.</p>
+        <p>O DEVEDOR declara e reconhece, de forma irrevogável e irretratável, que possui uma dívida líquida, certa e exigível com o CREDOR ${textoObjeto}</p>
         <p><strong>PARÁGRAFO ÚNICO:</strong> O presente instrumento constitui Título Executivo Extrajudicial, nos termos do Artigo 784, inciso III, do Código de Processo Civil, apto a embasar execução judicial imediata.</p>
 
         <h2>CLÁUSULA 2 - DA FORMA DE PAGAMENTO</h2>
