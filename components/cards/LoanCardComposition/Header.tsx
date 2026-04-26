@@ -54,20 +54,13 @@ export const Header: React.FC<HeaderProps> = ({
     }
   };
 
-  // Prioridade de exibição de valores:
-  // 1. Se tem dívida total calculada (currentDebt) e ela é diferente do principal, mostra ela.
-  // 2. Se está atrasado, mostra o total (inclui multas).
-  // 3. Fallback para Principal.
-  let displayAmount = loan.principal;
-  let amountLabel = 'Total';
-  const totalCalculated = currentDebt ?? 0;
-  
-  if (isLate || isOverdueByDays) {
-      displayAmount = totalCalculated > 0 ? totalCalculated : loan.totalToReceive;
-      amountLabel = 'Total';
-  } else if (totalCalculated > 0 && Math.abs(totalCalculated - loan.principal) > 1) {
-      displayAmount = totalCalculated;
-      amountLabel = 'Total';
+  // Mostra sempre o saldo devedor atual (Regressão de valor) conforme solicitado
+  let displayAmount = currentDebt ?? loan.totalToReceive;
+  let amountLabel = 'Dívida Atual';
+
+  if (isFullyFinalized) {
+      displayAmount = 0;
+      amountLabel = 'Quitado';
   }
 
   // Badges refinados
