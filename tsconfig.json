@@ -20,6 +20,11 @@
     "**/supabase/functions/**",
     "**/supabase/**/index.ts",
     "node_modules",
-    "dist"
+    "dist",
+    "scratch",
+    "check_owner.ts",
+    "check_table_columns.ts",
+    "check_connectivity.ts",
+    "check-db.ts"
   ]
 }
