@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import type { CapitalSource, Loan, Client, Installment, AgreementInstallment } from '../types';
 import type { ModalType, ModalState } from '../contexts/ModalContext';
 
@@ -43,7 +43,17 @@ export const useUiState = () => {
   const [editingLoan, setEditingLoan] = useState<Loan | null>(null);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
 
-  const [selectedLoanId, setSelectedLoanId] = useState<string | null>(null);
+  const [selectedLoanId, setSelectedLoanId] = useState<string | null>(() => {
+    return localStorage.getItem('cm_selected_loan_id');
+  });
+
+  useEffect(() => {
+    if (selectedLoanId) {
+      localStorage.setItem('cm_selected_loan_id', selectedLoanId);
+    } else {
+      localStorage.removeItem('cm_selected_loan_id');
+    }
+  }, [selectedLoanId]);
 
   // Master / Admin
   const [masterEditUser, setMasterEditUser] = useState<any>(null);

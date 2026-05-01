@@ -82,9 +82,7 @@ export const Body: React.FC<BodyProps> = ({
                     <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/10 text-emerald-500 rounded-lg border border-emerald-500/20">
                         <CheckCircle2 size={10} className="shrink-0" />
                         <span className="text-[9px] font-black uppercase tracking-wider">
-                            {new Date(loan.last_billed_at).toDateString() === new Date().toDateString() 
-                              ? 'Cobrado Hoje' 
-                              : `Cobrado em ${new Date(loan.last_billed_at).toLocaleDateString('pt-BR')}`}
+                            O cliente foi cobrado {loan.billing_count || 1} vez{ (loan.billing_count || 1) === 1 ? '' : 'es' }.
                         </span>
                     </div>
                 )}

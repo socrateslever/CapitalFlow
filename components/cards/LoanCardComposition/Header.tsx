@@ -185,23 +185,24 @@ export const Header: React.FC<HeaderProps> = ({
                   </div>
                 )}
 
-                {isLocked ? (
-                  <div className="flex flex-col items-end">
-                    <div className="flex items-center gap-1 px-2 py-1 bg-emerald-500/10 text-emerald-500 rounded-md border border-emerald-500/20">
-                      <span className="text-[8px] font-black uppercase tracking-wider">Cobrado</span>
-                    </div>
-                  </div>
-                ) : (
-                  <button 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onMarkAsBilled?.(loan);
-                    }}
-                    className="flex items-center gap-1 px-2 py-1 bg-rose-500 hover:bg-rose-600 text-white rounded-md border border-rose-400 shadow-sm shadow-rose-500/20 transition-all active:scale-95 animate-pulse"
-                  >
-                    <span className="text-[8px] font-black uppercase tracking-wider">Cobrar</span>
-                  </button>
-                )}
+                    {isLocked ? (
+                      <div className="flex flex-col items-end">
+                        <div className="flex items-center gap-1 px-2 py-1 bg-emerald-500/10 text-emerald-500 rounded-md border border-emerald-500/20">
+                          <span className="text-[8px] font-black uppercase tracking-wider">Cobrado</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setIsLocked(true);
+                          onMarkAsBilled?.(loan);
+                        }}
+                        className="flex items-center gap-1 px-2 py-1 bg-rose-500 hover:bg-rose-600 text-white rounded-md border border-rose-400 shadow-sm shadow-rose-500/20 transition-all active:scale-95 animate-pulse"
+                      >
+                        <span className="text-[8px] font-black uppercase tracking-wider">Cobrar</span>
+                      </button>
+                    )}
              </div>
           )}
         </div>

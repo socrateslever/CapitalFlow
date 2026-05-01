@@ -75,7 +75,7 @@ export const useCalendar = (activeUser: UserProfile | null, showToast: (msg: str
       )
       .on(
         'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'contratos', filter: `profile_id=eq.${activeUser.id}` },
+        { event: 'UPDATE', schema: 'public', table: 'contratos', filter: `owner_id=eq.${activeUser.id}` },
         () => refreshEvents(true)
       )
       .subscribe();

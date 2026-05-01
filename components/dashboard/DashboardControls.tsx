@@ -139,7 +139,7 @@ export const DashboardControls: React.FC<DashboardControlsProps> = ({
             </div>
 
             {isSearchOpen && (
-                <div className="absolute top-full left-0 right-0 mt-2 bg-slate-900 border border-slate-800 p-1.5 rounded-2xl flex items-center gap-1 animate-in slide-in-from-top-2 duration-200 z-50 shadow-2xl shadow-black/50">
+                <div className="mt-2 bg-slate-900 border border-slate-800 p-1.5 rounded-2xl flex items-center gap-1 animate-in slide-in-from-top-2 duration-200 shadow-2xl shadow-black/50">
                     <div className="pl-3 pr-1 text-emerald-500"><Search size={14}/></div>
                     <input 
                         type="text" 

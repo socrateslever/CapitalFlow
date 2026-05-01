@@ -256,6 +256,13 @@ export const contractsService = {
     if (safeAmount <= 0) throw new Error('Valor inválido.');
 
     // ✅ aqui é isso mesmo: p_profile_id = ownerId
+    console.log('[DEBUG] addAporte params:', {
+      loanId: safeUUID(loanId),
+      ownerId: safeUUID(ownerId),
+      amount: safeAmount,
+      sourceId: safeUUID(sourceId),
+      installmentId: safeUUID(installmentId)
+    });
     const { error } = await supabase.rpc('apply_new_aporte_atomic', {
       p_loan_id: safeUUID(loanId),
       p_profile_id: safeUUID(ownerId),
@@ -266,7 +273,10 @@ export const contractsService = {
       p_operator_id: safeUUID(activeUser.id),
     });
 
-    if (error) throw new Error(error.message);
+    if (error) {
+       console.error('[DEBUG] RPC Error:', error, { loanId, ownerId });
+       throw new Error(`Erro ao aplicar aporte: ${error.message} (Loan ID: ${loanId}, Owner ID: ${ownerId})`);
+    }
     return true;
   },
 
