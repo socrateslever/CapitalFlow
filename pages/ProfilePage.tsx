@@ -91,8 +91,6 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
         return 'Painel';
       case 'CLIENTS':
         return 'Clientes';
-      case 'TEAM':
-        return 'Equipe';
       case 'SOURCES':
         return 'Fundos';
       case 'LEGAL':
@@ -101,8 +99,6 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
         return 'Perfil';
       case 'LEADS':
         return 'Leads';
-      case 'ACQUISITION':
-        return 'Captação';
       default:
         return tab;
     }
@@ -759,7 +755,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                   </h4>
 
                   <div className="space-y-2">
-                    {navOrder.filter(t => t !== 'AGENDA').map((tab) => (
+                    {navOrder.filter(t => t !== 'AGENDA' && t !== 'TEAM' && t !== 'ACQUISITION').map((tab) => (
                       <div
                         key={tab}
                         className="bg-slate-950 border border-slate-800 p-3 rounded-xl flex items-center justify-between group"
@@ -799,7 +795,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                   </h4>
 
                   <div className="space-y-2">
-                    {hubOrder.filter(t => t !== 'AGENDA').map((tab) => (
+                    {hubOrder.filter(t => t !== 'AGENDA' && t !== 'TEAM' && t !== 'ACQUISITION').map((tab) => (
                       <div
                         key={tab}
                         className="bg-slate-950 border border-slate-800 p-3 rounded-xl flex items-center justify-between group"

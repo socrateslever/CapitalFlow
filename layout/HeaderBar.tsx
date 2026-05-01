@@ -556,9 +556,8 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             style={{ WebkitOverflowScrolling: 'touch' }}
           >
             {(navOrder || [])
-              .filter((tab) => tab !== 'PERSONAL_FINANCE' && tab !== 'AGENDA')
+              .filter((tab) => tab !== 'PERSONAL_FINANCE' && tab !== 'AGENDA' && tab !== 'TEAM' && tab !== 'ACQUISITION')
               .map((tab) => {
-                if (tab === 'TEAM' && activeUser?.supervisor_id) return null;
                 const isActive = activeTab === tab;
                 return (
                   <button
