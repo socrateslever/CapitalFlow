@@ -1,6 +1,6 @@
 
 import Dexie, { type Table } from 'dexie';
-import { Loan, Client, CapitalSource, UserProfile } from '../types';
+import { Loan, Client, CapitalSource, UserProfile } from '../../types';
 
 export class CapitalFlowDB extends Dexie {
   perfis!: Table<UserProfile>;
