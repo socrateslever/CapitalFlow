@@ -10,6 +10,7 @@ export class CapitalFlowDB extends Dexie {
   clientes!: Table<Client>;
   fontes!: Table<CapitalSource>;
   sync_metadata!: Table<{ key: string; last_sync: string; profile_id: string }>;
+  write_queue!: Table<any>;
 
   constructor() {
     super('CapitalFlowDB');
