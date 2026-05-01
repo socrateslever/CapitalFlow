@@ -22,7 +22,7 @@ export class CapitalFlowDB extends Dexie {
       clientes: 'id, owner_id, name, document, phone',
       fontes: 'id, profile_id, name',
       sync_metadata: 'key, profile_id',
-      write_queue: 'id, table, operation, timestamp'
+      write_queue: 'id, table, operation, status, nextRetryAt, timestamp'
     });
   }
 }

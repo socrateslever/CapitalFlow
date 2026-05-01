@@ -1,6 +1,6 @@
 
 import { supabase } from '../lib/supabase';
-import { db } from '../lib/dexie';
+import { db } from './offline/adminOfflineStore';
 import { mapLoanFromDB } from './adapters/dbAdapters';
 import { maskPhone, maskDocument } from '../utils/formatters';
 import { asNumber } from '../utils/safe';
@@ -108,7 +108,7 @@ export const syncService = {
 
   /**
    * Enfileira uma operação para execução posterior (ou imediata se online)
-   * Implementa o padrão "Optimistic UI + Background Sync"
+   * Implementa o padrão "Optimistic UI + Background Sync" com Backoff
    */
   async enqueueOperation(params: {
     table: string;
@@ -132,21 +132,34 @@ export const syncService = {
       operation,
       data,
       targetId: id,
+      status: 'PENDING',
+      attempts: 0,
+      maxAttempts: 7,
+      nextRetryAt: new Date().toISOString(),
       timestamp: new Date().toISOString()
     };
     await db.write_queue.put(queueItem);
 
     // 3. Tentar processar a fila em background
-    this.processQueue().catch(err => console.warn('[SYNC] Queue processing failed (offline?):', err));
+    this.processQueue().catch(err => console.warn('[SYNC] Queue processing failed:', err));
     
     return true;
   },
 
   /**
-   * Processa a fila de escritas pendentes
+   * Processa a fila de escritas pendentes com lógica de Backoff
    */
   async processQueue() {
-    const items = await db.write_queue.orderBy('timestamp').toArray();
+    if (typeof navigator !== 'undefined' && !navigator.onLine) return;
+
+    // Busca itens que não estão DEAD e cujo tempo de retry já passou
+    const now = new Date().toISOString();
+    const items = await db.write_queue
+      .where('status')
+      .anyOf(['PENDING', 'FAILED'])
+      .and(item => item.nextRetryAt <= now)
+      .toArray();
+
     if (items.length === 0) return;
 
     console.log(`[SYNC] Processando fila de escrita (${items.length} itens)...`);
@@ -155,6 +168,9 @@ export const syncService = {
       try {
         let error = null;
         
+        // Simulação de delay para evitar race conditions
+        await new Promise(resolve => setTimeout(resolve, 100));
+
         if (item.operation === 'UPDATE' || item.operation === 'INSERT') {
           const { error: err } = await supabase.from(item.table).upsert(item.data);
           error = err;
@@ -165,14 +181,56 @@ export const syncService = {
 
         if (error) throw error;
 
-        // Se deu certo, remove da fila
+        // Sucesso: Remove da fila
         await db.write_queue.delete(item.id);
-        console.log(`[SYNC] Item ${item.id} sincronizado.`);
-      } catch (err) {
-        console.error(`[SYNC] Falha ao sincronizar item ${item.id}:`, err);
-        // Para o processamento da fila se houver erro (preserva ordem)
-        break;
+        console.log(`[SYNC] Item ${item.id} sincronizado com sucesso.`);
+      } catch (err: any) {
+        const attempts = (item.attempts || 0) + 1;
+        const maxAttempts = item.maxAttempts || 7;
+        
+        console.error(`[SYNC] Falha na tentativa ${attempts}/${maxAttempts} para item ${item.id}:`, err);
+
+        if (attempts >= maxAttempts) {
+          // Marca como DEAD se excedeu tentativas
+          await db.write_queue.update(item.id, {
+            status: 'DEAD',
+            attempts,
+            lastError: err?.message || String(err),
+            lastAttemptAt: new Date().toISOString()
+          });
+        } else {
+          // Lógica de Backoff Exponencial (2^attempts * 1000ms) com teto de 5min
+          const backoffSec = Math.min(Math.pow(2, attempts), 300);
+          const nextRetry = new Date(Date.now() + backoffSec * 1000).toISOString();
+
+          await db.write_queue.update(item.id, {
+            status: 'FAILED',
+            attempts,
+            nextRetryAt: nextRetry,
+            lastError: err?.message || String(err),
+            lastAttemptAt: new Date().toISOString()
+          });
+        }
+        
+        // Para o processamento desta leva se houver erro de rede global
+        if (!navigator.onLine) break;
       }
     }
+  },
+
+  /**
+   * Força o re-enfileiramento de itens mortos (Manual Retry)
+   */
+  async retryDeadItems() {
+    const deadItems = await db.write_queue.where('status').equals('DEAD').toArray();
+    for (const item of deadItems) {
+      await db.write_queue.update(item.id, {
+        status: 'PENDING',
+        attempts: 0,
+        nextRetryAt: new Date().toISOString()
+      });
+    }
+    this.processQueue();
+    return deadItems.length;
   }
 };
