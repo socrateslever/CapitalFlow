@@ -234,9 +234,20 @@ export const contractsService = {
   async saveNote(loanId: string, note: string) {
     const safeId = safeUUID(loanId);
     if (!safeId) throw new Error('ID inválido.');
-    const { error } = await supabase.from('contratos').update({ notes: note }).eq('id', safeId);
-    if (error) throw error;
-    return true;
+    
+    try {
+      const { syncService } = await import('./sync.service');
+      await syncService.enqueueOperation({
+        table: 'contratos',
+        operation: 'UPDATE',
+        data: { id: safeId, notes: note },
+        id: safeId
+      });
+      return true;
+    } catch (e) {
+      console.error('[ContractsService] Erro ao salvar nota:', e);
+      throw e;
+    }
   },
 
   async addAporte(params: {
@@ -284,23 +295,25 @@ export const contractsService = {
     const safeId = safeUUID(loanId);
     if (!safeId) throw new Error('ID inválido.');
     
+    const now = new Date().toISOString();
+    const updatedData = {
+      id: safeId,
+      last_billed_at: now,
+      billing_count: (currentCount || 0) + 1 
+    };
+
     try {
-      const { error } = await supabase
-        .from('contratos')
-        .update({ 
-          last_billed_at: new Date().toISOString(),
-          billing_count: (currentCount || 0) + 1 
-        })
-        .eq('id', safeId);
+      const { syncService } = await import('./sync.service');
       
-      if (error) {
-        // Se o erro for de coluna inexistente, avisamos o usuário sobre o SQL necessário
-        if (error.message.includes('last_billed_at')) {
-          console.error('ERRO DE BANCO: A coluna "last_billed_at" não existe na tabela "contratos". Por favor, execute o SQL de migração fornecido no resumo de implementação.');
-          throw new Error('Coluna de banco de dados ausente. Entre em contato com o suporte ou execute o SQL de atualização.');
-        }
-        throw error;
-      }
+      // ✅ OFFLINE FIRST: Enfileira a operação
+      // Isso atualiza o Dexie local imediatamente e tenta enviar ao Supabase
+      await syncService.enqueueOperation({
+        table: 'contratos',
+        operation: 'UPDATE',
+        data: updatedData,
+        id: safeId
+      });
+
       return true;
     } catch (e: any) {
       console.error('[ContractsService] Erro ao marcar cobrança:', e);

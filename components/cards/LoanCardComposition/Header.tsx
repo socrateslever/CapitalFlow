@@ -48,11 +48,26 @@ export const Header: React.FC<HeaderProps> = ({
 
   // Lógica de 24h e Countdown
   const [timeLeft, setTimeLeft] = React.useState<string | null>(null);
-  const [isLocked, setIsLocked] = React.useState(false);
+
+  const checkIsLocked = React.useCallback((lastBilledAt: string | null | undefined) => {
+    if (!lastBilledAt || lastBilledAt === '') return false;
+    const lastBilled = new Date(lastBilledAt).getTime();
+    if (isNaN(lastBilled)) return false;
+    const now = new Date().getTime();
+    const diff = now - lastBilled;
+    const twentyFourHours = 24 * 60 * 60 * 1000;
+    return diff > 0 && diff < twentyFourHours;
+  }, []);
+
+  const [isLocked, setIsLocked] = React.useState(() => checkIsLocked(loan.last_billed_at));
 
   React.useEffect(() => {
+    // Sincroniza estado se a prop mudar (ex: após refresh de dados)
+    setIsLocked(checkIsLocked(loan.last_billed_at));
+    
     if (!loan.last_billed_at) {
       setIsLocked(false);
+      setTimeLeft(null);
       return;
     }
 
@@ -77,7 +92,7 @@ export const Header: React.FC<HeaderProps> = ({
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [loan.last_billed_at]);
+  }, [loan.last_billed_at, checkIsLocked]);
   
   const getBillingCycleLabel = (cycle: string) => {
     switch (cycle) {

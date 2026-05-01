@@ -18,15 +18,14 @@ export const asNumber = (v: any, fallback = 0, fieldName?: string): number => {
 
 export const safeDateString = (v: any, fieldName?: string): string => {
   try {
+    if (!v) return ''; // Retorna string vazia para valores nulos/indefinidos
     if (v instanceof Date && !isNaN(v.getTime())) return v.toISOString();
     if (typeof v === 'string' && v.trim().length > 0) {
-        // Tenta corrigir datas UTC parciais ou mal formatadas
         const d = new Date(v);
         if (!isNaN(d.getTime())) return d.toISOString();
     }
-    // Fallback para Hoje se data inválida (Previne Tela Branca em Charts/Slices)
-    return new Date().toISOString();
+    return ''; // Fallback para string vazia em vez de now()
   } catch (e) {
-    return new Date().toISOString();
+    return '';
   }
 };

@@ -68,35 +68,42 @@ serve(async (req) => {
     }
 
     const body = await req.json();
-    const { amount, payer_name, payer_email, payer_doc, loan_id, installment_id, payment_type } = body || {};
+    const { amount, payer_name, payer_email, payer_doc, loan_id, installment_id, payment_type, source_id: body_source_id } = body || {};
 
-    // 1. Buscar o Dono do Contrato (Operador)
-    const { data: loan, error: loanErr } = await supabaseAdmin
-      .from("contratos")
-      .select("id, profile_id, source_id")
-      .eq("id", loan_id)
-      .single();
+    let targetProfileId = callerProfile.id;
+    let targetSourceId = body_source_id || null;
 
-    if (loanErr || !loan?.id) return json(req, { ok: false, error: "Contrato não encontrado" }, 404);
+    // 1. Se informou loan_id, buscamos o Dono do Contrato (Operador)
+    if (loan_id) {
+      const { data: loan, error: loanErr } = await supabaseAdmin
+        .from("contratos")
+        .select("id, profile_id, source_id")
+        .eq("id", loan_id)
+        .single();
 
-    // 2. Buscar Credenciais MP do Operador (Multi-Conta)
+      if (loanErr || !loan?.id) return json(req, { ok: false, error: "Contrato não encontrado" }, 404);
+      targetProfileId = loan.profile_id;
+      targetSourceId = targetSourceId || loan.source_id;
+    }
+
+    // 2. Buscar Credenciais MP do Perfil alvo (Multi-Conta)
     const { data: mpConfig } = await supabaseAdmin
       .from("perfis_config_mp")
       .select("mp_access_token")
-      .eq("profile_id", loan.profile_id)
+      .eq("profile_id", targetProfileId)
       .maybeSingle();
 
     const accessToken = mpConfig?.mp_access_token || GLOBAL_MP_ACCESS_TOKEN;
 
     if (!accessToken) {
-      return json(req, { ok: false, error: "Credenciais Mercado Pago não configuradas" }, 400);
+      return json(req, { ok: false, error: "Credenciais Mercado Pago não configuradas para este perfil" }, 400);
     }
 
     const external_reference = crypto.randomUUID();
 
     const mpPayload = {
       transaction_amount: Number(amount),
-      description: `Pagamento Contrato ${String(loan.id).slice(0, 8)}`,
+      description: loan_id ? `Pagamento Contrato ${String(loan_id).slice(0, 8)}` : `Depósito em Conta`,
       payment_method_id: "pix",
       external_reference,
       payer: {
@@ -108,11 +115,11 @@ serve(async (req) => {
         } : undefined,
       },
       metadata: {
-        loan_id: loan.id,
-        installment_id,
-        payment_type: payment_type || "RENEW_INTEREST",
-        profile_id: loan.profile_id,
-        source_id: loan.source_id,
+        loan_id: loan_id || null,
+        installment_id: installment_id || null,
+        payment_type: payment_type || (loan_id ? "RENEW_INTEREST" : "WALLET_DEPOSIT"),
+        profile_id: targetProfileId,
+        source_id: targetSourceId,
       },
     };
 

@@ -9,7 +9,6 @@ export const useClientPortalLogic = (initialToken: string, initialCode: string) 
   const [isLoading, setIsLoading] = useState(true);
   const [portalError, setPortalError] = useState<string | null>(null);
 
-  // Dados do Cliente
   const [loggedClient, setLoggedClient] = useState<any>(null);
   const [clientContracts, setClientContracts] = useState<Loan[]>([]);
   const [portalDocuments, setPortalDocuments] = useState<any[]>([]);
@@ -57,19 +56,17 @@ export const useClientPortalLogic = (initialToken: string, initialCode: string) 
 
     try {
       const clientData = await portalService.fetchClientByPortal(initialToken, initialCode);
-      if (!clientData) throw new Error('Dados do cliente não encontrados.');
+      if (!clientData) throw new Error('Dados do cliente nao encontrados.');
 
       const rawContractsList = await portalService.fetchClientContractsByPortal(initialToken, initialCode);
       const normalizedContractsList = Array.isArray(rawContractsList) ? rawContractsList : [];
-      
-      // ✅ Busca dados mais detalhados se existirem
+
       const fullLoanData = await portalService.fetchFullLoanByPortal(initialToken, initialCode);
 
-      // ✅ Busca fallback de profileId se não veio no clientData
-      const fallbackProfileId = 
-        normalizedContractsList[0]?.profile_id || 
-        normalizedContractsList[0]?.profileId || 
-        normalizedContractsList[0]?.owner_id || 
+      const fallbackProfileId =
+        normalizedContractsList[0]?.profile_id ||
+        normalizedContractsList[0]?.profileId ||
+        normalizedContractsList[0]?.owner_id ||
         normalizedContractsList[0]?.ownerId ||
         fullLoanData?.profile_id ||
         fullLoanData?.profileId ||
@@ -82,11 +79,7 @@ export const useClientPortalLogic = (initialToken: string, initialCode: string) 
         document: clientData.document || '',
         phone: clientData.phone,
         email: clientData.email,
-        profileId: clientData.profile_id || clientData.profileId || clientData.owner_id || clientData.ownerId || fallbackProfileId, // ✅ Captura o ID do profissional com múltiplos fallbacks
-      });
-      console.log('[useClientPortalLogic] Data Load Complete:', { 
-        clientDataId: clientData.id, 
-        profileIdFound: clientData.profile_id || clientData.profileId || clientData.owner_id || clientData.ownerId || fallbackProfileId
+        profileId: clientData.profile_id || clientData.profileId || clientData.owner_id || clientData.ownerId || fallbackProfileId,
       });
 
       const { installments, signals } = await portalService.fetchLoanDetailsByPortal(initialToken, initialCode);
@@ -143,12 +136,8 @@ export const useClientPortalLogic = (initialToken: string, initialCode: string) 
         const summaryA = resolveDebtSummary(a, a.installments);
         const summaryB = resolveDebtSummary(b, b.installments);
 
-        if (summaryA.hasLateInstallments && !summaryB.hasLateInstallments) {
-          return -1;
-        }
-        if (!summaryA.hasLateInstallments && summaryB.hasLateInstallments) {
-          return 1;
-        }
+        if (summaryA.hasLateInstallments && !summaryB.hasLateInstallments) return -1;
+        if (!summaryA.hasLateInstallments && summaryB.hasLateInstallments) return 1;
 
         const dateA = summaryA.nextDueDate?.getTime() ?? Number.MAX_SAFE_INTEGER;
         const dateB = summaryB.nextDueDate?.getTime() ?? Number.MAX_SAFE_INTEGER;
@@ -158,17 +147,43 @@ export const useClientPortalLogic = (initialToken: string, initialCode: string) 
 
       setClientContracts(sortedContracts);
 
+      let docs: any[] = [];
       try {
-        const docs = await portalService.listDocuments(initialToken, initialCode);
+        docs = await portalService.listDocuments(initialToken, initialCode);
         setPortalDocuments(docs);
       } catch (docErr) {
         console.error('Erro ao buscar documentos:', docErr);
       }
+
+      await portalService.saveOfflineSnapshot(initialToken, initialCode, {
+        clientData,
+        contracts: sortedContracts,
+        fullLoanData,
+        installments,
+        signals,
+        documents: docs,
+      });
     } catch (err: any) {
       console.error('Portal Load Error:', err);
-      setPortalError(
-        err?.message || 'Não foi possível carregar os dados do portal.'
-      );
+      try {
+        const snapshot = await portalService.loadOfflineSnapshot(initialToken, initialCode);
+        if (snapshot?.payload) {
+          const offlineClient = snapshot.payload.clientData || null;
+          const offlineContractsRaw = Array.isArray(snapshot.payload.contracts) ? snapshot.payload.contracts : [];
+          const offlineContracts = offlineContractsRaw
+            .map((contract: any) => hydratePortalLoan(contract, snapshot.payload.signals || []))
+            .filter((contract): contract is Loan => !!contract);
+
+          setLoggedClient(offlineClient);
+          setClientContracts(offlineContracts);
+          setPortalDocuments(Array.isArray(snapshot.payload.documents) ? snapshot.payload.documents : []);
+          setPortalError(null);
+        } else {
+          setPortalError(err?.message || 'Nao foi possivel carregar os dados do portal.');
+        }
+      } catch {
+        setPortalError(err?.message || 'Nao foi possivel carregar os dados do portal.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -178,6 +193,38 @@ export const useClientPortalLogic = (initialToken: string, initialCode: string) 
     loadFullPortalData();
   }, [loadFullPortalData, initialToken, initialCode]);
 
+  useEffect(() => {
+    const runSync = () => {
+      portalService.syncPortalOfflineQueue()
+        .then((result) => {
+          if ((result?.synced || 0) > 0) {
+            loadFullPortalData().catch((reloadErr) => {
+              console.error('Erro ao recarregar portal apos sync:', reloadErr);
+            });
+          }
+        })
+        .catch((syncErr) => {
+          console.error('Erro ao sincronizar fila offline do portal:', syncErr);
+        });
+    };
+
+    runSync();
+    if (typeof window !== 'undefined') {
+      const onVisibility = () => {
+        if (document.visibilityState === 'visible') runSync();
+      };
+      const intervalId = window.setInterval(runSync, 30000);
+      window.addEventListener('online', runSync);
+      document.addEventListener('visibilitychange', onVisibility);
+      return () => {
+        window.removeEventListener('online', runSync);
+        document.removeEventListener('visibilitychange', onVisibility);
+        window.clearInterval(intervalId);
+      };
+    }
+    return () => {};
+  }, [loadFullPortalData]);
+
   const handleSignDocument = async (docId: string, role: string = 'DEVEDOR') => {
     if (!loggedClient) return;
     setIsSigning(true);
@@ -186,17 +233,13 @@ export const useClientPortalLogic = (initialToken: string, initialCode: string) 
 
       if (missingInfo && missingInfo.missing && missingInfo.missing.length > 0) {
         const patch: any = {};
-        if (missingInfo.missing.includes('documento') && loggedClient.document) {
-          patch.documento = loggedClient.document;
-        }
-        if (missingInfo.missing.includes('nome') && loggedClient.name) {
-          patch.nome = loggedClient.name;
-        }
+        if (missingInfo.missing.includes('documento') && loggedClient.document) patch.documento = loggedClient.document;
+        if (missingInfo.missing.includes('nome') && loggedClient.name) patch.nome = loggedClient.name;
 
         if (Object.keys(patch).length > 0) {
           await portalService.updateDocumentSnapshotFields(docId, patch);
         } else {
-          alert('Existem informações faltantes no seu cadastro para assinar este documento. Por favor, entre em contato com o suporte.');
+          alert('Existem informacoes faltantes no seu cadastro para assinar este documento. Por favor, entre em contato com o suporte.');
           setIsSigning(false);
           return;
         }
@@ -263,8 +306,6 @@ export const useClientPortalLogic = (initialToken: string, initialCode: string) 
     handleViewDocument,
     handleDeleteDocument,
     isSigning,
-
-    // compatibilidade
     activeToken: initialToken,
     setActiveToken: () => {},
   };

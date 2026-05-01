@@ -2,11 +2,12 @@
 import { useMemo } from 'react';
 import { calculateTotalDue } from '../../../domain/finance/calculations';
 import { normalizeLoanForCalc, normalizeInstallmentForCalc } from '../mappers/portalAdapters';
+import { isPortalInstallmentPaid } from '../mappers/portalDebtRules';
 
 export const usePortalTotals = (loan: any, installments: any[]) => {
     
     const { totalJuridicoDevido, nextDueDate } = useMemo(() => {
-        const pending = (installments || []).filter((i: any) => i.status !== 'PAID');
+        const pending = (installments || []).filter((i: any) => !isPortalInstallmentPaid(i));
         
         // Se não houver contrato carregado, retorna zerado
         if (!loan) {
@@ -30,7 +31,7 @@ export const usePortalTotals = (loan: any, installments: any[]) => {
     }, [loan, installments]);
 
     const pendingInstallments = useMemo(() => 
-        (installments || []).filter((i: any) => i.status !== 'PAID'), 
+        (installments || []).filter((i: any) => !isPortalInstallmentPaid(i)), 
     [installments]);
 
     return {

@@ -149,7 +149,7 @@ export const generateConfissaoDividaHTML = (data: LegalDocumentParams, docId?: s
                 ${renderSignatureBlock('WITNESS_2', data.witnesses?.[1]?.name || 'Testemunha 2', (data.witnesses?.[1] as any)?.document || (data.witnesses?.[1] as any)?.documento || '')}
             </div>
 
-            <div style="position: absolute; bottom: 1.5cm; width: calc(100% - 5cm); border-top: 0.5pt solid #eee; padding-top: 15px; font-family: sans-serif; font-size: 7pt; color: #888; display: flex; justify-content: space-between; align-items: flex-end;">
+            <div style="margin-top: 80px; border-top: 0.5pt solid #eee; padding-top: 15px; font-family: sans-serif; font-size: 7pt; color: #888; display: flex; justify-content: space-between; align-items: flex-end; page-break-inside: avoid;">
                 <div style="flex: 1;">
                     <strong>CapitalFlow Forensic Compliance:</strong><br/>
                     ID DOC: <code style="color: #444;">${docId || 'S/N'}</code> | HASH INTEGRIDADE: <code style="color: #444; font-weight: bold;">${hash?.toUpperCase() || 'AGUARDANDO_ASSINATURA'}</code><br/>

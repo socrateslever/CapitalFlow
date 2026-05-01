@@ -1,9 +1,8 @@
 
-import { Loan, Installment, LoanStatus } from '../../../types';
+import { Loan, Installment } from '../../../types';
 import { calculateTotalDue } from '../../../domain/finance/calculations';
 import { normalizeLoanForCalc, normalizeInstallmentForCalc } from './portalAdapters';
 import { getDaysDiff } from '../../../utils/dateHelpers';
-import { loanEngine } from '../../../domain/loanEngine';
 import { isDev } from '../../../utils/isDev';
 
 // Tipos de Retorno
@@ -40,6 +39,38 @@ export interface PaymentOptions {
     daysLate: number;
     dueDateISO: string;
 }
+
+const PAID_STATUSES = new Set(['PAID', 'PAGO', 'QUITADO', 'QUITADA', 'FINALIZADO', 'CLOSED', 'ENCERRADO']);
+const SETTLED_EPSILON = 0.05;
+
+export const isPortalInstallmentPaid = (inst: any): boolean => {
+    if (!inst) return true;
+
+    const status = String(inst.status ?? '').trim().toUpperCase();
+    if (PAID_STATUSES.has(status)) return true;
+
+    if (inst.agreementId || inst.acordo_id || inst.agreement_id) {
+        const amount = Number(inst.amount ?? inst.valor ?? inst.valor_parcela ?? 0);
+        const paidAmount = Number(inst.paidAmount ?? inst.paid_amount ?? inst.valor_pago ?? 0);
+        return amount > 0 && amount - paidAmount <= SETTLED_EPSILON;
+    }
+
+    const hasBalanceFields =
+        inst.principalRemaining !== undefined ||
+        inst.principal_remaining !== undefined ||
+        inst.interestRemaining !== undefined ||
+        inst.interest_remaining !== undefined ||
+        inst.lateFeeAccrued !== undefined ||
+        inst.late_fee_accrued !== undefined;
+
+    if (!hasBalanceFields) return false;
+
+    const principalRemaining = Number(inst.principalRemaining ?? inst.principal_remaining ?? 0);
+    const interestRemaining = Number(inst.interestRemaining ?? inst.interest_remaining ?? 0);
+    const lateFeeAccrued = Number(inst.lateFeeAccrued ?? inst.late_fee_accrued ?? 0);
+
+    return principalRemaining + interestRemaining + lateFeeAccrued <= SETTLED_EPSILON;
+};
 
 /**
  * HELPER DE LABEL DE VENCIMENTO (Regra Centralizada)
@@ -88,7 +119,7 @@ export const resolveDebtSummary = (loan: Loan, installments: Installment[]): Por
     // Se houver acordo ativo, a dívida é baseada nos termos do acordo (Suporta ACTIVE e ATIVO)
     if (loan.activeAgreement && (loan.activeAgreement.status === 'ACTIVE' || loan.activeAgreement.status === 'ATIVO')) {
         const agreementInsts = loan.activeAgreement.installments || [];
-        const pending = agreementInsts.filter(i => i.status !== 'PAID' && i.status !== 'PAGO');
+        const pending = agreementInsts.filter(i => !isPortalInstallmentPaid(i));
         const totalDue = pending.reduce((acc, i) => acc + (Number(i.amount) - Number(i.paidAmount || 0)), 0);
         
         let maxDaysLate = 0;
@@ -108,23 +139,20 @@ export const resolveDebtSummary = (loan: Loan, installments: Installment[]): Por
 
     if (!installments) return { totalDue: 0, nextDueDate: null, pendingCount: 0, hasLateInstallments: false, maxDaysLate: 0 };
 
-    const balance = loanEngine.computeRemainingBalance(loan);
-    const pending = installments.filter(i => {
-        const isPaidByStatus = i.status === LoanStatus.PAID || i.status === LoanStatus.PAGO;
-        const isPaidByBalance = (Number(i.principalRemaining) || 0) === 0 && (Number(i.interestRemaining) || 0) === 0;
-        return !isPaidByStatus && !isPaidByBalance;
-    });
+    const pending = installments.filter(i => !isPortalInstallmentPaid(i));
 
     const loanCalc = normalizeLoanForCalc(loan);
     let maxDaysLate = 0;
+    let totalDue = 0;
     pending.forEach(inst => {
         const instCalc = normalizeInstallmentForCalc(inst);
         const debt = calculateTotalDue(loanCalc, instCalc);
+        totalDue += Number(debt.total || 0);
         if (debt.daysLate > maxDaysLate) maxDaysLate = debt.daysLate;
     });
 
     return {
-        totalDue: balance.totalRemaining,
+        totalDue,
         nextDueDate: pending.length > 0 ? new Date(pending[0].dueDate) : null,
         pendingCount: pending.length,
         hasLateInstallments: maxDaysLate > 0,
@@ -141,9 +169,9 @@ export const resolveInstallmentDebt = (loan: Loan, inst: any): InstallmentDebtDe
         const amount = Number(inst.amount || 0);
         const paidAmount = Number(inst.paidAmount || 0);
         const remaining = amount - paidAmount;
-        const isPaidOff = inst.status === 'PAID' || inst.status === 'PAGO' || remaining <= 0.05;
-        const daysLate = getDaysDiff(inst.dueDate);
-        const isLate = daysLate > 0;
+        const isPaidOff = isPortalInstallmentPaid(inst);
+        const daysLate = isPaidOff ? 0 : getDaysDiff(inst.dueDate);
+        const isLate = !isPaidOff && daysLate > 0;
         const dueInfo = getPortalDueLabel(daysLate, inst.dueDate);
 
         let statusLabel = dueInfo.label;
@@ -161,8 +189,8 @@ export const resolveInstallmentDebt = (loan: Loan, inst: any): InstallmentDebtDe
         }
 
         return {
-            total: remaining,
-            principal: remaining,
+            total: isPaidOff ? 0 : remaining,
+            principal: isPaidOff ? 0 : remaining,
             interest: 0,
             lateFee: 0,
             isLate,
@@ -179,12 +207,11 @@ export const resolveInstallmentDebt = (loan: Loan, inst: any): InstallmentDebtDe
     const debt = calculateTotalDue(loanCalc, instCalc);
 
     // CORREÇÃO: Verificar se parcela está realmente quitada (status OU saldo zerado)
-    const isPaidByStatus = inst.status === LoanStatus.PAID || inst.status === LoanStatus.PAGO;
-    const isPaidByBalance = (Number(inst.principalRemaining) || 0) === 0 && (Number(inst.interestRemaining) || 0) === 0;
-    const isPaidOff = isPaidByStatus || isPaidByBalance;
+    const isPaidOff = isPortalInstallmentPaid(inst);
 
-    const isLate = debt.daysLate > 0;
-    const dueInfo = getPortalDueLabel(debt.daysLate, inst.dueDate);
+    const daysLate = isPaidOff ? 0 : debt.daysLate;
+    const isLate = !isPaidOff && daysLate > 0;
+    const dueInfo = getPortalDueLabel(daysLate, inst.dueDate);
 
     let statusLabel = dueInfo.label;
     let statusColor = 'text-slate-500';
@@ -201,12 +228,12 @@ export const resolveInstallmentDebt = (loan: Loan, inst: any): InstallmentDebtDe
     }
 
     return {
-        total: debt.total,
-        principal: debt.principal,
-        interest: debt.interest,
-        lateFee: debt.lateFee,
+        total: isPaidOff ? 0 : debt.total,
+        principal: isPaidOff ? 0 : debt.principal,
+        interest: isPaidOff ? 0 : debt.interest,
+        lateFee: isPaidOff ? 0 : debt.lateFee,
         isLate,
-        daysLate: debt.daysLate,
+        daysLate,
         dueDateISO: inst.dueDate,
         statusLabel,
         statusColor

@@ -56,15 +56,6 @@ export const DocumentTemplates = {
             ${data.clauses?.foro ? `<p class="indent"><strong>CLÁUSULA SEXTA - DO FORO:</strong> Fica eleito o foro da Comarca de <b>${data.city.toUpperCase()} (${data.state.toUpperCase()})</b>.</p>` : ''}
 
             <p style="margin-top: 40px; text-align: right;"><b>${data.city.toUpperCase()} (${data.state.toUpperCase()})</b>, em <b>${new Date().toLocaleDateString('pt-BR')}</b>.</p>
-
-            <div style="margin-top: 50px; display: grid; grid-template-columns: 1fr 1fr; gap: 30px; page-break-inside: avoid;">
-                <div style="text-align: center; border-top: 1pt solid #000; padding-top: 5px;">
-                    <b class="uppercase" style="font-size: 10pt;">${data.debtorName}</b><br/><span style="font-size: 8pt;">DEVEDOR(A)</span>
-                </div>
-                <div style="text-align: center; border-top: 1pt solid #000; padding-top: 5px;">
-                    <b class="uppercase" style="font-size: 10pt;">${data.creditorName}</b><br/><span style="font-size: 8pt;">CREDOR(A)</span>
-                </div>
-            </div>
         </div>
     `,
 
@@ -96,15 +87,6 @@ export const DocumentTemplates = {
             <p class="indent"><strong>CLÁUSULA QUINTA:</strong> Este título possui eficácia executiva extrajudicial conforme Art. 784, III CPC.</p>
 
             <p style="margin-top: 100px; text-align: right;"><b>${data.city.toUpperCase()} (${data.state.toUpperCase()})</b>, em <b>${new Date().toLocaleDateString('pt-BR')}</b>.</p>
-
-            <div style="margin-top: 80px; display: grid; grid-template-columns: 1fr 1fr; gap: 40px;">
-                <div style="text-align: center; border-top: 1pt solid #000; padding-top: 10px;">
-                    <b class="uppercase">${data.debtorName}</b><br/>DEVEDOR(A)
-                </div>
-                <div style="text-align: center; border-top: 1pt solid #000; padding-top: 10px;">
-                    <b class="uppercase">${data.creditorName}</b><br/>CREDOR(A)
-                </div>
-            </div>
         </div>
     `,
 

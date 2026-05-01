@@ -26,7 +26,7 @@ import { usePortalPushNotifications } from '../../features/portal/hooks/usePorta
 import { notificationService } from '../../services/notification.service';
 import { PortalPaymentModal } from '../../features/portal/components/PortalPaymentModal';
 import { PortalChatDrawer } from '../../features/portal/components/PortalChatDrawer';
-import { resolveDebtSummary, resolveInstallmentDebt, getPortalDueLabel } from '../../features/portal/mappers/portalDebtRules';
+import { resolveDebtSummary, resolveInstallmentDebt, getPortalDueLabel, isPortalInstallmentPaid } from '../../features/portal/mappers/portalDebtRules';
 import { PortalInstallmentItem } from './components/PortalInstallmentItem';
 import { PortalEducationalAI } from '../../features/portal/components/PortalEducationalAI';
 import { formatMoney } from '../../utils/formatters';
@@ -59,7 +59,7 @@ const ContractBlock: React.FC<ContractBlockProps> = ({ loan, onPay }) => {
     return loan.installments;
   }, [loan]);
 
-  const nextInst = installmentsToShow.find((i: any) => i.status !== 'PAID' && i.status !== 'PAGO');
+  const nextInst = installmentsToShow.find((i: any) => !isPortalInstallmentPaid(i));
   const statusInfo = nextInst
     ? getPortalDueLabel(resolveInstallmentDebt(loan, nextInst).daysLate, nextInst.dueDate)
     : { label: 'Quitado', variant: 'OK' };
@@ -130,7 +130,7 @@ const ContractBlock: React.FC<ContractBlockProps> = ({ loan, onPay }) => {
       {!isPaidOff && (
         <div className="space-y-2 mb-6 bg-slate-950/40 p-3 rounded-2xl border border-slate-800/30 backdrop-blur-sm relative z-10">
           {installmentsToShow
-            .filter((i: any) => i.status !== 'PAID' && i.status !== 'PAGO')
+            .filter((i: any) => !isPortalInstallmentPaid(i))
             .slice(0, 2)
             .map((inst: any) => (
               <PortalInstallmentItem key={inst.id} loan={loan} installment={inst} />
@@ -609,7 +609,7 @@ const ClientPortalViewContent: React.FC<ClientPortalViewProps> = ({ initialPorta
           portalCode={initialPortalCode}
           loan={activeLoanForPayment}
           installment={
-            activeLoanForPayment.installments.find((i: any) => i.status !== 'PAID') || activeLoanForPayment.installments[0]
+            activeLoanForPayment.installments.find((i: any) => !isPortalInstallmentPaid(i)) || activeLoanForPayment.installments[0]
           }
           clientData={{ name: loggedClient.name, doc: loggedClient.document, id: loggedClient.id }}
           onClose={() => {

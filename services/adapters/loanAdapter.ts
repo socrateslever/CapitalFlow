@@ -110,7 +110,7 @@ export function mapLoanFromDB(
 
     return {
       id: asString(inst?.id),
-      dueDate: safeDateString(inst?.due_date ?? inst?.dueDate ?? inst?.data_vencimento, 'dueDate'),
+      dueDate: safeDateString(inst?.data_vencimento ?? inst?.dueDate ?? inst?.due_date, 'dueDate'),
       amount: asNumber(inst?.amount ?? inst?.valor_parcela),
       scheduledPrincipal: asNumber(inst?.scheduled_principal ?? inst?.scheduledPrincipal),
       scheduledInterest: asNumber(inst?.scheduled_interest ?? inst?.scheduledInterest),

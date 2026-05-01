@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { formatMoney } from '../../../utils/formatters';
-import { resolveInstallmentDebt } from '../../../features/portal/mappers/portalDebtRules';
+import { resolveInstallmentDebt, isPortalInstallmentPaid } from '../../../features/portal/mappers/portalDebtRules';
 import { Loan } from '../../../types';
 
 interface PortalInstallmentItemProps {
@@ -12,6 +12,7 @@ interface PortalInstallmentItemProps {
 export const PortalInstallmentItem: React.FC<PortalInstallmentItemProps> = ({ loan, installment }) => {
     // ✅ Fonte Única de Verdade para Status e Valores
     const details = resolveInstallmentDebt(loan, installment);
+    const isPaid = isPortalInstallmentPaid(installment);
 
     // Ajuste de ícone baseado no statusColor (simples heurística visual)
     const bgIcon = details.statusColor.includes('emerald') ? 'bg-emerald-500/10 text-emerald-500' :
@@ -37,10 +38,10 @@ export const PortalInstallmentItem: React.FC<PortalInstallmentItemProps> = ({ lo
             
             {/* Exibe o Total Real (Incluindo Multas se houver) */}
             <div className="text-right">
-                <p className={`text-xs font-black ${installment.status === 'PAID' ? 'text-emerald-500 decoration-slate-500' : 'text-white'}`}>
+                <p className={`text-xs font-black ${isPaid ? 'text-emerald-500 decoration-slate-500' : 'text-white'}`}>
                     {formatMoney(details.total)}
                 </p>
-                {Math.abs(details.total - (installment.amount || 0)) > 1 && installment.status !== 'PAID' && (
+                {Math.abs(details.total - (installment.amount || 0)) > 1 && !isPaid && (
                     <p className="text-[9px] text-slate-500 font-bold line-through">
                         {formatMoney(installment.amount)}
                     </p>

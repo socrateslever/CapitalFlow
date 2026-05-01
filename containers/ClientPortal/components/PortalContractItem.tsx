@@ -1,7 +1,7 @@
 
 import React, { useMemo } from 'react';
 import { Wallet, MessageCircle } from 'lucide-react';
-import { resolveDebtSummary, resolveInstallmentDebt, getPortalDueLabel } from '../../../features/portal/mappers/portalDebtRules';
+import { resolveDebtSummary, resolveInstallmentDebt, getPortalDueLabel, isPortalInstallmentPaid } from '../../../features/portal/mappers/portalDebtRules';
 import { formatMoney } from '../../../utils/formatters';
 import { PortalInstallmentItem } from './PortalInstallmentItem';
 
@@ -15,7 +15,7 @@ export const PortalContractItem: React.FC<PortalContractItemProps> = ({ loan, on
     const summary = useMemo(() => resolveDebtSummary(loan, loan.installments), [loan]);
     const { hasLateInstallments, totalDue, pendingCount, nextDueDate } = summary;
 
-    const nextInst = loan.installments.find((i: any) => i.status !== 'PAID');
+    const nextInst = loan.installments.find((i: any) => !isPortalInstallmentPaid(i));
     const statusInfo = nextInst ? getPortalDueLabel(resolveInstallmentDebt(loan, nextInst).daysLate, nextInst.dueDate) : { label: 'Quitado', variant: 'OK' };
 
     const isPaidOff = pendingCount === 0;
@@ -71,7 +71,7 @@ export const PortalContractItem: React.FC<PortalContractItemProps> = ({ loan, on
             {/* Lista de Parcelas (Apenas as próximas 2 para economizar espaço) */}
             {!isPaidOff && (
                 <div className="space-y-2 mb-4 bg-slate-950/50 p-2 rounded-xl border border-slate-800/50">
-                    {loan.installments.filter((i:any) => i.status !== 'PAID').slice(0, 2).map((inst: any) => (
+                    {loan.installments.filter((i:any) => !isPortalInstallmentPaid(i)).slice(0, 2).map((inst: any) => (
                          <PortalInstallmentItem key={inst.id} loan={loan} installment={inst} />
                     ))}
                     {pendingCount > 2 && (

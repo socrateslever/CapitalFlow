@@ -129,24 +129,14 @@ export const useAppState = (activeProfileId: string | null, onProfileNotFound?: 
   const [profileEditForm, setProfileEditForm] = useState<UserProfile | null>(null);
 
   const fetchFullData = useCallback(async (profileId: string) => {
-    if (!profileId || profileId === 'null' || profileId === 'undefined') {
-      console.log("[useAppState] profileId inválido, abortando fetch");
-      return;
-    }
+    if (!profileId || profileId === 'null' || profileId === 'undefined') return;
 
-    // Antes de buscar dados, verifica se a sessão do Supabase ainda é válida
     const { data: { session } } = await getSynchronizedSession();
-    
-    // 🔥 CORREÇÃO: Resiliência na identificação do perfil.
-    // O ID solicitado pode ser um UUID aleatório ou o ID do próprio Auth User.
-    // Buscamos um perfil que coincida com o ID solicitado ou que pertença ao usuário logado.
     const searchId = profileId === 'DEMO' ? 'DEMO' : profileId;
 
     if (searchId === 'DEMO') {
       setActiveUser(DEMO_USER);
       setProfileEditForm(DEMO_USER);
-      setNavOrder(DEFAULT_NAV);
-      setHubOrder(DEFAULT_HUB);
       return;
     }
     
@@ -154,149 +144,53 @@ export const useAppState = (activeProfileId: string | null, onProfileNotFound?: 
     setLoadError(null);
 
     try {
-      let query = supabase.from('perfis').select('*');
-      
-      if (searchId === 'DEMO') {
-        query = query.eq('id', 'DEMO');
-      } else if (session?.user) {
-        // Busca o perfil pelo ID solicitado OU pelo ID do usuário logado (Foreign Key)
-        // 🔥 CORREÇÃO: Removidas aspas duplas desnecessárias que podem quebrar o PostgREST em alguns contextos.
-        query = query.or(`id.eq.${searchId},user_id.eq.${session.user.id}`);
-      } else {
-        query = query.eq('id', searchId);
-      }
-
-      const { data: dbProfiles, error } = await query
+      // 1. Resolver Perfil (Ainda precisamos do Supabase para saber quem é o owner)
+      const { data: dbProfiles, error: profileErr } = await supabase
+        .from('perfis')
+        .select('*')
+        .or(`id.eq.${searchId},user_id.eq.${session?.user?.id || ''}`)
         .order('created_at', { ascending: false })
         .limit(1);
 
-      if (error) {
-        setLoadError(error.message);
-        setIsLoadingData(false);
-        return;
-      }
-
+      if (profileErr) throw profileErr;
       const profileData = dbProfiles?.[0];
-
-      if (!profileData) {
-        // 🔥 SEGURANÇA MÁXIMA: Se o perfil não existe no banco, criamos um virtual em memória
-        // para que o usuário NUNCA seja expulso do sistema se estiver autenticado no Auth.
-        console.warn("[useAppState] Perfil não encontrado no banco. Usando perfil virtual.");
-        
-        const virtualUser: UserProfile = {
-          id: searchId,
-          profile_id: searchId,
-          name: session?.user?.email?.split('@')[0] || 'Novo Gestor',
-          fullName: session?.user?.email?.split('@')[0] || 'Novo Gestor',
-          email: session?.user?.email || '',
-          accessLevel: 'ADMIN',
-          interestBalance: 0,
-          totalAvailableCapital: 0,
-          ui_nav_order: DEFAULT_NAV,
-          ui_hub_order: DEFAULT_HUB,
-          brandColor: '#2563eb',
-        };
-
-        setActiveUser(virtualUser);
-        setProfileEditForm(virtualUser);
-        setIsLoadingData(false);
-        return;
-      }
+      if (!profileData) throw new Error('Perfil não encontrado');
 
       const u = mapProfileFromDB(profileData);
-
       const ownerId = profileData.owner_profile_id || profileData.supervisor_id || profileData.id;
-      console.log("RESOLVED_OWNER", ownerId);
-
-      const [clientsRes, sourcesRes, loansRes] = await Promise.all([
-        supabase.from('clientes').select('*').eq('owner_id', ownerId),
-        supabase.from('fontes').select('*').eq('profile_id', ownerId),
-        supabase
-          .from('contratos')
-          .select('*, parcelas(*), transacoes(*), acordos_inadimplencia!loan_id(*, acordo_parcelas(*))')
-          .eq('owner_id', ownerId)
-      ]);
-
-      if (clientsRes.error) console.error("Erro Clientes:", clientsRes.error);
-      if (sourcesRes.error) console.error("Erro Fontes:", sourcesRes.error);
-      if (loansRes.error) console.error("Erro Contratos:", loansRes.error);
-
-      if (loansRes.error && loansRes.error.code !== 'PGRST116') {
-        throw new Error(`Erro ao carregar contratos: ${loansRes.error.message}`);
-      }
-
-      const mappedClients = (clientsRes.data || []).map((c: any) => ({
-        ...c,
-        phone: maskPhone(c.phone),
-        document: maskDocument(c.document)
-      }));
-
-      const mappedSources = (sourcesRes.data || []).map((s: any) => ({
-        ...s,
-        balance: asNumber(s.balance)
-      }));
-
-      const mappedLoans = (loansRes.data || []).map((l: any) =>
-        mapLoanFromDB(l, clientsRes.data || [])
-      );
-
-      let mappedStaff: UserProfile[] = [];
-
-      const { data: staffData } = await supabase
-        .from('perfis')
-        .select('*')
-        .eq('owner_profile_id', ownerId)
-        .order('nome_operador', { ascending: true });
-
-      if (staffData) {
-        mappedStaff = staffData.map(s => mapProfileFromDB(s));
-      }
-
+      
       setActiveUser(u);
       setProfileEditForm(u);
-      setNavOrder((u.ui_nav_order || DEFAULT_NAV) as AppTab[]);
-      setHubOrder((u.ui_hub_order || DEFAULT_HUB) as AppTab[]);
-      setClients(mappedClients);
-      setSources(mappedSources);
-      setLoans(mappedLoans);
-      setStaffMembers(mappedStaff);
 
-      writeCache(searchId, {
-        activeUser: u,
-        clients: mappedClients,
-        sources: mappedSources,
-        loans: mappedLoans,
-        staffMembers: mappedStaff,
-        navOrder: u.ui_nav_order || DEFAULT_NAV,
-        hubOrder: u.ui_hub_order || DEFAULT_HUB
-      });
+      // 2. Carregar do Dexie (MUITO RÁPIDO - OFFLINE FIRST)
+      const { syncService } = await import('../services/sync.service');
+      const local = await syncService.getLocalData(ownerId);
+      
+      if (local.loans.length > 0) {
+        setLoans(local.loans);
+        setClients(local.clients);
+        setSources(local.sources);
+        setIsLoadingData(false); // Já temos dados para mostrar!
+      }
+
+      // 3. Sincronizar em Background
+      try {
+        await syncService.syncFullData(searchId, ownerId);
+        
+        // 4. Recarregar após sync para garantir consistência
+        const updated = await syncService.getLocalData(ownerId);
+        setLoans(updated.loans);
+        setClients(updated.clients);
+        setSources(updated.sources);
+      } catch (syncErr) {
+        console.warn('[useAppState] Falha no sync background (provavelmente offline):', syncErr);
+        // Não jogamos erro se já temos dados locais
+        if (local.loans.length === 0) throw syncErr;
+      }
 
     } catch (err: any) {
-      const errMsg = err.message || String(err);
       console.error('Erro ao carregar dados:', err);
-
-      // Se for erro de timeout ou rede, tenta sinalizar de forma clara
-      if (
-        errMsg?.includes('timeout') || 
-        errMsg?.includes('Aborted') || 
-        errMsg?.includes('Failed to fetch') ||
-        errMsg?.includes('Load failed')
-      ) {
-        setLoadError('Erro de conexão ou tempo limite excedido. Verifique sua rede e tente atualizar a página.');
-        return;
-      }
-
-      // Se for erro de token inválido, sinaliza necessidade de reauth
-      if (
-        errMsg?.includes('Refresh Token') || 
-        errMsg?.includes('JWT') ||
-        err.code === 'PGRST301' // JWT expired
-      ) {
-        setLoadError('SESSAO_EXPIRADA');
-        return;
-      }
-
-      setLoadError(errMsg || 'Erro de conexão.');
+      setLoadError(err.message || 'Erro de conexão.');
     } finally {
       setIsLoadingData(false);
     }
@@ -321,12 +215,11 @@ export const useAppState = (activeProfileId: string | null, onProfileNotFound?: 
       setLoans(cached.loans);
       setStaffMembers(cached.staffMembers);
 
-      // Só busca novamente se o cache tiver mais de 5 minutos
+      // 🔥 CORREÇÃO: Cache agora é apenas um "placeholder" inicial.
+      // Sempre buscamos do banco ao carregar, a menos que o cache seja extremamente recente (30s).
       const cacheAge = Date.now() - cached.ts;
-      if (cacheAge > 5 * 60 * 1000) {
-        setTimeout(() => {
-          fetchFullData(activeProfileId);
-        }, 1000);
+      if (cacheAge > 30 * 1000) {
+        fetchFullData(activeProfileId);
       }
     } else {
       fetchFullData(activeProfileId);

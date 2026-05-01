@@ -223,6 +223,9 @@ export const mapLoanFromDB = (l: any, clientsData: any[] = []): Loan => {
     portalToken: asString(l.portal_token),
     portalShortcode: asString(l.portal_shortcode),
 
+    last_billed_at: safeDateString(l.last_billed_at),
+    billing_count: asNumber(l.billing_count),
+
     status: asString(l.status) as LoanStatus,
   };
 };

@@ -3,6 +3,7 @@ import { Loan } from '../../../types';
 import { getDaysDiff } from '../../../utils/dateHelpers';
 import { notificationService } from '../../../services/notification.service';
 import { supabase } from '../../../lib/supabase';
+import { isPortalInstallmentPaid } from '../mappers/portalDebtRules';
 
 export const usePortalPushNotifications = (contracts: Loan[], clientId: string | null) => {
   const notifiedEvents = useRef<Set<string>>(new Set());
@@ -13,7 +14,7 @@ export const usePortalPushNotifications = (contracts: Loan[], clientId: string |
     // 1. Monitorar Prazos (Executado ao carregar)
     contracts.forEach(loan => {
       loan.installments.forEach(inst => {
-        if (inst.status === 'PAID') return;
+        if (isPortalInstallmentPaid(inst)) return;
         
         const diff = getDaysDiff(inst.dueDate);
         const eventId = `due-${inst.id}-${diff}`;

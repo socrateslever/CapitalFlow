@@ -221,6 +221,22 @@ export const App: React.FC = () => {
     }
   }, [activeUser, isPublicView]);
 
+  // ✅ MONITOR DE CONEXÃO: Tenta processar fila de escrita quando a rede volta
+  useEffect(() => {
+    const handleOnline = async () => {
+      console.log('[NETWORK] Conexão restabelecida. Processando fila de sincronização...');
+      try {
+        const { syncService } = await import('./services/sync.service');
+        await syncService.processQueue();
+      } catch (e) {
+        console.error('[NETWORK] Falha ao processar fila após volta da rede:', e);
+      }
+    };
+
+    window.addEventListener('online', handleOnline);
+    return () => window.removeEventListener('online', handleOnline);
+  }, []);
+
   // Timeout de Segurança para o Loading (10 segundos)
   useEffect(() => {
     if (activeProfileId && !activeUser && bootFinished && !loadError) {

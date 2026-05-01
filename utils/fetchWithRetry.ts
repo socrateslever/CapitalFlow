@@ -25,7 +25,17 @@ export async function fetchWithRetry(
 
   for (let i = 0; i <= maxRetries; i++) {
     try {
-      const response = await fetch(input, fetchOptions);
+      let requestInput: RequestInfo | URL = input;
+      let currentOptions: RequestInit = { ...fetchOptions };
+
+      if (input instanceof Request) {
+        requestInput = input.clone();
+        if (input.body !== null && currentOptions.body) {
+          delete currentOptions.body;
+        }
+      }
+
+      const response = await fetch(requestInput, currentOptions);
 
       if (response.ok) {
         return response;
