@@ -1,10 +1,12 @@
+
 import React, { useState, useEffect } from 'react';
-import { AlertCircle, AlertTriangle, CheckCircle2, MessageSquare, Plus, ArrowLeft, LayoutDashboard, Users, Briefcase, Wallet, PiggyBank, Calendar, Calculator, ArrowRightLeft, User, Menu, ShieldCheck, FileText, X } from 'lucide-react';
+import { AlertCircle, AlertTriangle, CheckCircle2, MessageSquare, Plus, ArrowLeft, LayoutDashboard, Users, Briefcase, Wallet, PiggyBank, Calendar, Calculator, ArrowRightLeft, Megaphone, User, Menu, ShieldCheck, FileText, X } from 'lucide-react';
 import { HeaderBar } from './HeaderBar';
 import { BottomNav } from './BottomNav';
 import { UserProfile } from '../types';
 import { supabase } from '../lib/supabase';
 import { notificationService } from '../services/notification.service';
+import { useCampaignNotifications } from '../hooks/useCampaignNotifications';
 import { InAppNotification } from '../hooks/useAppNotifications';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -38,7 +40,9 @@ export const AppShell: React.FC<AppShellProps> = ({
 }) => {
   const [unreadSupport, setUnreadSupport] = useState(0);
   const [showWelcome, setShowWelcome] = useState(true);
-  const totalUnread = unreadSupport;
+  const { unreadCampaignCount } = useCampaignNotifications(activeUser);
+
+  const totalUnread = unreadSupport + unreadCampaignCount;
 
   useEffect(() => {
     if (!activeUser || activeUser.id === 'DEMO') return;

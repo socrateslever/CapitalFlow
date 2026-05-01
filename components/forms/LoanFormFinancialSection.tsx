@@ -155,7 +155,7 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
             <div className="bg-rose-950/20 border border-rose-500/30 p-4 rounded-2xl space-y-4 animate-in slide-in-from-right">
                 <div className="flex items-center gap-2 text-rose-400 mb-2">
                     <CreditCard size={16}/>
-                    <span className="text-[10px] font-black uppercase tracking-widest">Custo de Funding (Cartão)</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest">Custo de Captação (Cartão)</span>
                 </div>
                 
                 <div className="grid grid-cols-2 gap-4">

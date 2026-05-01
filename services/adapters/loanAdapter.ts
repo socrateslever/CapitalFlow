@@ -204,6 +204,8 @@ export function mapLoanFromDB(
     portalShortcode: asString(l?.portal_shortcode ?? l?.portalShortcode),
 
     contato_whatsapp: asString(l?.contato_whatsapp ?? l?.support_phone ?? l?.supportPhone),
+    last_billed_at: safeDateString(l?.last_billed_at ?? l?.lastBilledAt),
+    billing_count: Number(l?.billing_count ?? l?.billingCount ?? 0),
 
     status: normalizeLoanStatus(l?.status),
 

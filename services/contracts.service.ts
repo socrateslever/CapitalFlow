@@ -269,4 +269,32 @@ export const contractsService = {
     if (error) throw new Error(error.message);
     return true;
   },
+
+  async markAsBilled(loanId: string, currentCount: number = 0) {
+    const safeId = safeUUID(loanId);
+    if (!safeId) throw new Error('ID inválido.');
+    
+    try {
+      const { error } = await supabase
+        .from('contratos')
+        .update({ 
+          last_billed_at: new Date().toISOString(),
+          billing_count: (currentCount || 0) + 1 
+        })
+        .eq('id', safeId);
+      
+      if (error) {
+        // Se o erro for de coluna inexistente, avisamos o usuário sobre o SQL necessário
+        if (error.message.includes('last_billed_at')) {
+          console.error('ERRO DE BANCO: A coluna "last_billed_at" não existe na tabela "contratos". Por favor, execute o SQL de migração fornecido no resumo de implementação.');
+          throw new Error('Coluna de banco de dados ausente. Entre em contato com o suporte ou execute o SQL de atualização.');
+        }
+        throw error;
+      }
+      return true;
+    } catch (e: any) {
+      console.error('[ContractsService] Erro ao marcar cobrança:', e);
+      throw e;
+    }
+  },
 };

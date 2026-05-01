@@ -1,6 +1,6 @@
 
 import React, { useRef, useState } from 'react';
-import { LayoutGrid, X, User, Calendar, Calculator, ArrowRightLeft, Shield, Scale, Wallet, Briefcase, Users, LayoutDashboard, PiggyBank, Settings, MessageCircle, MenuSquare, PieChart } from 'lucide-react';
+import { LayoutGrid, X, User, Calendar, Calculator, ArrowRightLeft, Shield, Scale, Wallet, Briefcase, Users, LayoutDashboard, PiggyBank, Settings, MessageCircle, Megaphone, MenuSquare, PieChart } from 'lucide-react';
 import { AppTab, UserProfile } from "../types";
 
 interface NavHubProps {
@@ -49,20 +49,25 @@ export const NavHub: React.FC<NavHubProps> = ({ onClose, onNavigate, userLevel, 
             case 'PROFILE': return { icon: <User size={20}/>, label: 'Perfil', color: 'text-blue-500', hover: 'hover:border-blue-600' };
             case 'SOURCES': return { icon: <Wallet size={20}/>, label: 'Capital', color: 'text-emerald-500', hover: 'hover:border-emerald-600' };
             case 'LEGAL': return { icon: <Scale size={20}/>, label: 'Jurídico', color: 'text-indigo-500', hover: 'hover:border-indigo-600' };
+            case 'TEAM': return { icon: <Briefcase size={20}/>, label: 'Minha Equipe', color: 'text-purple-500', hover: 'hover:border-purple-600' };
             case 'CLIENTS': return { icon: <Users size={20}/>, label: 'Clientes', color: 'text-amber-500', hover: 'hover:border-amber-600' };
             case 'DASHBOARD': return { icon: <LayoutDashboard size={20}/>, label: 'Painel Geral', color: 'text-cyan-500', hover: 'hover:border-cyan-600' };
             case 'SETTINGS': return { icon: <Settings size={20}/>, label: 'Ajustes', color: 'text-slate-400', hover: 'hover:border-slate-500' };
             case 'LEADS': return { icon: <MessageCircle size={20}/>, label: 'Leads', color: 'text-green-500', hover: 'hover:border-green-600' };
+            case 'ACQUISITION': return { icon: <Megaphone size={20}/>, label: 'Captação', color: 'text-orange-500', hover: 'hover:border-orange-600' };
             case 'REPORTS': return { icon: <PieChart size={20}/>, label: 'Inteligência', color: 'text-indigo-400', hover: 'hover:border-indigo-500' };
             default: return { icon: <LayoutGrid size={20}/>, label: tab, color: 'text-slate-500', hover: 'hover:border-slate-600' };
         }
     };
 
+    // Ensure DASHBOARD is always the first item in the menu
+    // Desativado temporariamente: TEAM e ACQUISITION
     const displayOrder = ['DASHBOARD' as AppTab, ...hubOrder.filter(tab => 
         tab !== 'DASHBOARD' && 
-        tab !== 'REPORTS' &&
-        tab !== 'LEADS' &&
-        !['AGENDA', 'ACQUISITION', 'TEAM'].includes(tab as string)
+        tab !== 'TEAM' && 
+        tab !== 'ACQUISITION' &&
+        tab !== 'AGENDA' &&
+        tab !== 'REPORTS'
     ), 'REPORTS' as AppTab];
 
     return (
@@ -113,6 +118,11 @@ export const NavHub: React.FC<NavHubProps> = ({ onClose, onNavigate, userLevel, 
                                     {meta.icon}
                                 </div>
                                 <span className="font-black text-white uppercase text-[11px] tracking-widest">{meta.label}</span>
+                                {tab === 'ACQUISITION' && unreadCampaignCount > 0 && (
+                                    <span className="absolute top-1/2 -translate-y-1/2 right-4 bg-rose-500 text-white text-[9px] font-black w-5 h-5 flex items-center justify-center rounded-full ring-4 ring-slate-950 animate-bounce shadow-lg shadow-rose-500/50">
+                                        {unreadCampaignCount > 99 ? '99+' : unreadCampaignCount}
+                                    </span>
+                                )}
                             </button>
                         );
                     })}

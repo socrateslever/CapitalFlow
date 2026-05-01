@@ -26,6 +26,7 @@ export interface LoanCardProps {
   onAgreementPayment: (loan: Loan, agreement: Agreement, inst: AgreementInstallment) => void;
   onReverseAgreementPayment?: (loan: Loan, agreement: Agreement, inst: AgreementInstallment) => void;
   onRefresh: () => void;
+  onMarkAsBilled?: (loan: Loan) => void;
   onNewAporte?: (loan: Loan) => void;
   onNavigate?: (id: string) => void;
   onLegalDocument?: (path: string) => void;

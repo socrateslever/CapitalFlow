@@ -73,6 +73,31 @@ export const ContractDetailsPage: React.FC<ContractDetailsPageProps> = ({
         };
     }, [loan]);
 
+    const delayDetails = useMemo(() => {
+        if (!loan) return null;
+        const today = new Date();
+        const installments = loan.installments || [];
+        
+        const lateInstallments = installments.filter(inst => {
+            const due = new Date(inst.dueDate);
+            const isOpen = inst.status !== 'PAID' && inst.status !== 'PAGO' && inst.status !== 'QUITADO' && inst.status !== 'RENEGOCIADO';
+            return isOpen && due.getTime() < today.getTime();
+        }).sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
+
+        if (lateInstallments.length === 0) return null;
+
+        return {
+            totalMonths: lateInstallments.length,
+            items: lateInstallments.map(inst => ({
+                number: inst.number || 0,
+                dueDate: inst.dueDate,
+                total: (inst.principalRemaining || inst.amount || 0) + (inst.lateFeeAccrued || 0) + (inst.interestRemaining || 0),
+                principal: inst.principalRemaining || inst.amount || 0,
+                interest: (inst.lateFeeAccrued || 0) + (inst.interestRemaining || 0)
+            }))
+        };
+    }, [loan]);
+
     const {
         manualDateStr, setManualDateStr,
         realPaymentDateStr, setRealPaymentDateStr,
@@ -208,6 +233,11 @@ export const ContractDetailsPage: React.FC<ContractDetailsPageProps> = ({
                             <span className={`px-2 py-0.5 rounded-full text-[9px] font-black text-white uppercase tracking-widest ${statusColor}`}>
                                 {status === 'OVERDUE' ? 'Atrasado' : status === 'PAID' ? 'Quitado' : 'Ativo'}
                             </span>
+                            {loan.last_billed_at && new Date(loan.last_billed_at).toDateString() === new Date().toDateString() && (
+                                <span className="px-2 py-0.5 bg-emerald-500 rounded-full text-[9px] font-black text-white uppercase tracking-widest animate-in fade-in zoom-in duration-300">
+                                    Cobrado Hoje
+                                </span>
+                            )}
                         </div>
                         <div className="flex items-center gap-3">
                             <p className="text-[10px] text-slate-500 font-medium uppercase tracking-widest flex items-center gap-1">
@@ -277,6 +307,36 @@ export const ContractDetailsPage: React.FC<ContractDetailsPageProps> = ({
                                     <p className="text-xl font-black text-emerald-400">{formatMoney(debtBreakdown.total, isStealthMode)}</p>
                                 </div>
                             </div>
+
+                            {/* DETALHAMENTO DE ATRASO (Novo) */}
+                            {delayDetails && (
+                                <div className="mt-6 pt-6 border-t border-slate-800 animate-in fade-in slide-in-from-top-2 duration-500">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <h4 className="text-[10px] font-black uppercase text-rose-500 tracking-widest flex items-center gap-2">
+                                            <AlertTriangle size={12} /> Detalhamento de Atraso
+                                        </h4>
+                                        <span className="px-2 py-0.5 bg-rose-500/10 text-rose-500 text-[9px] font-bold rounded-full border border-rose-500/20">
+                                            {delayDetails.totalMonths} {delayDetails.totalMonths === 1 ? 'Mês' : 'Meses'} em atraso
+                                        </span>
+                                    </div>
+                                    <div className="space-y-3">
+                                        {delayDetails.items.map((item, idx) => (
+                                            <div key={idx} className="flex items-center justify-between p-3 bg-slate-950/50 border border-slate-800 rounded-xl group hover:border-rose-500/30 transition-all">
+                                                <div className="flex flex-col">
+                                                    <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Parcela {item.number} • {new Date(item.dueDate).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</span>
+                                                    <span className="text-[11px] font-black text-white uppercase leading-none italic">Vencimento {new Date(item.dueDate).toLocaleDateString('pt-BR')}</span>
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="text-sm font-black text-rose-400">{formatMoney(item.total, isStealthMode)}</p>
+                                                    <p className="text-[9px] font-bold text-slate-600 uppercase tracking-tighter">
+                                                        Prin: {formatMoney(item.principal, isStealthMode)} + Enc: {formatMoney(item.interest, isStealthMode)}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
 

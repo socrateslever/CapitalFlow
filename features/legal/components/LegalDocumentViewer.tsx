@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FileText, Download, CheckCircle, AlertCircle, Printer, Shield, Info, X } from 'lucide-react';
 import { legalService } from '../services/legalService';
@@ -30,6 +30,8 @@ export const LegalDocumentViewer: React.FC<LegalDocumentViewerProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [showSignModal, setShowSignModal] = useState(false);
   const [agreeTerms, setAgreeTerms] = useState(false);
+  const printRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     loadDocument();
   }, [documentId]);
@@ -103,25 +105,6 @@ export const LegalDocumentViewer: React.FC<LegalDocumentViewerProps> = ({
     }
   };
 
-  const handlePrintDocument = () => {
-    if (!html) {
-      alert('Não há conteúdo disponível para impressão.');
-      return;
-    }
-
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) {
-      alert('Não foi possível abrir a janela de impressão.');
-      return;
-    }
-
-    printWindow.document.open();
-    printWindow.document.write(html);
-    printWindow.document.close();
-    printWindow.focus();
-    setTimeout(() => printWindow.print(), 500);
-  };
-
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center p-12 space-y-4">
@@ -177,14 +160,6 @@ export const LegalDocumentViewer: React.FC<LegalDocumentViewerProps> = ({
             </div>
           )}
           
-          <button 
-            onClick={handlePrintDocument}
-            className="p-2 hover:bg-white/5 text-zinc-400 hover:text-white rounded-lg transition-colors"
-            title="Imprimir"
-          >
-            <Printer className="w-5 h-5" />
-          </button>
-
           <button 
             onClick={handleDownloadPDF}
             className="p-2 hover:bg-white/5 text-zinc-400 hover:text-white rounded-lg transition-colors"

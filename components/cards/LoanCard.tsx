@@ -104,13 +104,21 @@ export const LoanCard: React.FC<LoanCardProps> = (props) => {
           currentDebt={totalDebt}
           onToggleExpand={handleToggleExpand}
           onNavigate={handleNavigate}
+          onMarkAsBilled={props.onMarkAsBilled}
         />
 
         {isExpanded && (
           <div className="space-y-6 animate-in fade-in slide-in-from-top-2 duration-300">
             <QuickActions 
               hasNotes={!!loan.notes}
-              onMessage={(e) => { e.stopPropagation(); onMessage(loan); }}
+              onMessage={(e) => { 
+                e.stopPropagation(); 
+                onMessage(loan); 
+                // Cobrança automática ao enviar mensagem
+                if (isLate || daysUntilDue < 0) {
+                  props.onMarkAsBilled?.(loan);
+                }
+              }}
               onNote={(e) => { e.stopPropagation(); onNote(loan); }}
               onPortalLink={(e) => { e.stopPropagation(); onPortalLink(loan); }}
               onViewDoc={(e, url) => { e.stopPropagation(); onViewDoc(url); }}

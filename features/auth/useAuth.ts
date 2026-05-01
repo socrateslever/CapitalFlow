@@ -314,6 +314,16 @@ export const useAuth = () => {
         setActiveProfileId(null);
       }
     } catch (e: any) {
+      const errorMsg = String(e?.message || e || '').toLowerCase();
+      const isLockError = errorMsg.includes('lock') && errorMsg.includes('stole');
+      
+      if (isLockError && !force && mountedRef.current) {
+        if (isDev) console.warn('[AUTH_BOOT] Conflito de lock detectado. Tentando recuperar em 1.5s...');
+        bootInProgress.current = false;
+        setTimeout(() => boot(true), 1500);
+        return;
+      }
+
       console.error('[AUTH_BOOT] Erro crítico no boot:', e);
       if (mountedRef.current) setLoadError(mapLoginError(e));
     } finally {

@@ -1,427 +1,375 @@
-﻿# IMPLEMENTACAO_RESUMO
+# IMPLEMENTACAO_RESUMO
 
-## Atualização - Ajuste de Recorrência das Notificações (2026-04-20)
-
-### Objetivo da modificação
-Ajustar a recorrência das notificações para reduzir persistência excessiva, aplicando:
-- 24 horas para alertas críticos;
-- 48 horas para alertas não críticos.
-
-Também foi corrigido o bloqueio real de reenvio para que a regra valha tanto na fila in-app quanto nos alertas nativos disparados pelo navegador.
-
-### Arquivos alterados
-- `/hooks/useAppNotifications.ts`
-  - Removido o cooldown fixo de 12 horas.
-  - Implementada classificação de criticidade para aplicar 24h em notificações críticas e 48h nas demais.
-  - Adicionado registro persistente de última notificação exibida em `localStorage`, evitando repetição indevida após recarga da aplicação.
-  - O disparo de `notificationService.notify(...)` e `showToast(...)` passou a ocorrer apenas quando a notificação realmente é aceita pelo motor de recorrência.
-  - Mantida a lógica atual de negócio dos eventos, alterando apenas a política de repetição.
-
-- `/features/dashboard/DashboardAlerts.tsx`
-  - O alerta crítico do dashboard continua com dispensa de 24h.
-  - O alerta não crítico de saldo baixo passou a respeitar dispensa de 48h.
-  - O tooltip do botão de fechamento foi ajustado para refletir o intervalo correto de cada alerta.
-
-### Arquivos criados
-- nenhum
-
-### Riscos ou observações importantes
-- As notificações classificadas como críticas continuam sendo as de severidade `error` ou marcadas como persistentes no fluxo atual.
-- As notificações `warning`, `info` e `success` agora respeitam 48h de reapresentação.
-
-### Sugestões futuras
-- Se necessário, centralizar em um enum explícito de severidade de negócio para diferenciar criticidade funcional sem depender apenas do tipo visual da notificação.
-
-### Confirmação de escopo
-- Confirmado: nenhuma rota, layout global, tela jurídica, template contratual ou aparência estrutural fora da lógica de notificações foi alterada.
-
-## AtualizaÃ§Ã£o - CorreÃ§Ã£o de ConfissÃ£o de DÃ­vida para Contrato Integral vs RenegociaÃ§Ã£o (2026-04-20)
-
-### Objetivo da modificaÃ§Ã£o
-Corrigir a geraÃ§Ã£o da confissÃ£o de dÃ­vida para distinguir corretamente:
-- contrato original integral, quando nÃ£o existe renegociaÃ§Ã£o ativa;
-- renegociaÃ§Ã£o em pagamento Ãºnico, quando existe acordo ativo com 1 parcela;
-- renegociaÃ§Ã£o parcelada, quando existe acordo ativo com mais de 1 parcela.
-
-TambÃ©m foi reforÃ§ada a redaÃ§Ã£o jurÃ­dica dos templates de confissÃ£o, sem alterar layout global do sistema.
-
-### Arquivos alterados
-- `/features/legal/components/ConfissaoDividaView.tsx`
-  - A tela passou a montar o payload a partir de `legalService.prepareDocumentParams(...)`.
-  - A prÃ©via automÃ¡tica agora decide entre `UNICO` e `PARCELADO` com base em `isAgreement` e na quantidade real de parcelas do snapshot.
-  - O registro do documento passou a vincular a confissÃ£o ao `activeAgreement.id` quando houver acordo ativo.
-  - O salvamento deixou de reaproveitar as parcelas originais do contrato quando o caso Ã© renegociado.
-
-- `/features/legal/services/legalService.ts`
-  - `prepareDocumentParams` passou a usar `agreement.negotiatedTotal` como valor base do documento.
-  - `contractDate` e `agreementDate` passaram a ser preservadas em formato de origem, evitando quebra de data na renderizaÃ§Ã£o.
-  - O snapshot jurÃ­dico continua usando parcelas do acordo quando houver renegociaÃ§Ã£o e parcelas do contrato apenas quando nÃ£o houver acordo.
-
-- `/features/legal/viewModels/confissaoVM.ts`
-  - Criadas funÃ§Ãµes centrais para classificar o cenÃ¡rio da confissÃ£o.
-  - A decisÃ£o passou a ignorar modalidade diÃ¡ria como critÃ©rio de parcelamento.
-  - Adicionada normalizaÃ§Ã£o robusta de datas para `YYYY-MM-DD`, ISO completo e `DD/MM/YYYY`.
-
-- `/features/legal/templates/DocumentTemplates.ts`
-  - Reescritos os textos de prÃ©via da confissÃ£o em `confissaoDividaParcelado` e `confissaoDividaUnico`.
-  - O seletor automÃ¡tico `confissaoDivida` agora usa a classificaÃ§Ã£o jurÃ­dica centralizada.
-  - A redaÃ§Ã£o foi fortalecida com reconhecimento expresso da dÃ­vida, mora, vencimento antecipado, ausÃªncia de novaÃ§Ã£o em renegociaÃ§Ã£o e eficÃ¡cia executiva.
-  - A prÃ©via passou a renderizar explicitamente os blocos/campos de assinatura das testemunhas, inclusive para impressÃ£o fÃ­sica.
-
-- `/features/legal/components/LegalDocumentViewer.tsx`
-  - Adicionado botÃ£o de impressÃ£o do documento jÃ¡ registrado, alÃ©m da opÃ§Ã£o de download em PDF.
-
-### Complemento da mesma frente (2026-04-20)
-- Confirmada a causa de ausÃªncia visual dos campos de testemunhas:
-  - os templates finais registrados jÃ¡ renderizavam testemunhas;
-  - a prÃ©via da tela de confissÃ£o nÃ£o renderizava esses blocos, por isso a minuta parecia incompleta antes do registro.
-- Adicionada opÃ§Ã£o de imprimir a minuta diretamente na tela de `ConfissaoDividaView` para assinatura fÃ­sica quando necessÃ¡rio.
-- Removido o quadro detalhado com todas as parcelas da confissÃ£o de dÃ­vida.
-- A confissÃ£o parcelada agora descreve o parcelamento em texto corrido, informando:
-  - quantidade de parcelas;
-  - valor de cada parcela;
-  - vencimento inicial;
-  - vencimento final.
-- O quadro detalhado de parcelas foi mantido fora da confissÃ£o para tratamento futuro na promissÃ³ria, conforme decisÃ£o de escopo.
-
-- `/features/legal/templates/ConfissaoDividaTemplate.ts`
-  - Reescrito o conteÃºdo padrÃ£o do documento real de confissÃ£o.
-  - O template agora gera texto consistente para dÃ­vida integral, renegociaÃ§Ã£o em parcela Ãºnica e renegociaÃ§Ã£o parcelada.
-  - O cronograma de parcelas sÃ³ Ã© exibido quando o cenÃ¡rio Ã© renegociaÃ§Ã£o parcelada.
-
-- `/features/legal/templates/ConfissaoDividaV2Template.ts`
-  - Aplicada a mesma classificaÃ§Ã£o correta do cenÃ¡rio jurÃ­dico.
-  - Removida a dependÃªncia da modalidade diÃ¡ria para decidir parcelamento.
-  - Mantidas as clÃ¡usulas extras de garantia, avalista e responsabilidade patrimonial, com redaÃ§Ã£o alinhada Ã  nova lÃ³gica principal.
-
-### Arquivos criados
-- nenhum
-
-### Riscos ou observaÃ§Ãµes importantes
-- A ediÃ§Ã£o manual continua possÃ­vel na tela, mas o preenchimento inicial agora parte do cenÃ¡rio correto do documento.
-- A decisÃ£o de parcelamento passou a depender de renegociaÃ§Ã£o ativa (`isAgreement`) e do nÃºmero real de parcelas do acordo, evitando confusÃ£o com contratos de modalidade diÃ¡ria.
-- A impressÃ£o da minuta usa o conteÃºdo atualmente visÃ­vel na prÃ©via, preservando o texto eventualmente ajustado manualmente pelo operador.
-
-### SugestÃµes futuras
-- Validar se a interface deve exibir explicitamente um selo textual de "Contrato Integral" ou "RenegociaÃ§Ã£o" antes do usuÃ¡rio abrir o editor.
-- Se necessÃ¡rio, padronizar a mesma classificaÃ§Ã£o tambÃ©m em outros documentos jurÃ­dicos derivados.
-
-### ConfirmaÃ§Ã£o de escopo
-- Confirmado: nenhuma rota, layout global, header, aparÃªncia estrutural ou modalidade financeira fora do fluxo de confissÃ£o de dÃ­vida foi alterada.
-
-## AtualizaÃ§Ã£o - CorreÃ§Ã£o de AtribuiÃ§Ã£o de Colunas de Perfil e ConsistÃªncia de Banco (2026-04-19)
+## Atualização - Refinamento da UI de Cobrança e Auditoria de Perfis (2026-05-01)
 
 ### Escopo executado
-ResoluÃ§Ã£o de erros de atualizaÃ§Ã£o de perfil causados pelo uso de colunas inexistentes (`support_phone` ou `support phone`) na tabela `perfis`. O sistema agora utiliza exclusivamente as colunas reais do banco: `contato_whatsapp` (para suporte/chat) e `phone` (telefone geral).
+Otimização da interface de cobrança para maior clareza operacional e início da investigação sobre erros de integridade de perfil.
 
-1.  **RefatoraÃ§Ã£o de Tipagem e Entidades (`types.ts`)**:
-    *   SubstituÃ­do o campo `supportPhone` por `contato_whatsapp` na interface `UserProfile`.
-    *   Garantida a consistÃªncia em outras entidades que referenciam o perfil, como a interface de `Loan`.
+1.  **Refinamento da UI ("Cobrar")**:
+    *   **Sucinto**: Botão renomeado para "Cobrar" para reduzir poluição visual no `LoanCard`.
+    *   **Layout**: Removido o contador de tempo em texto do header do card, evitando sobreposição. O estado bloqueado agora é sinalizado apenas pela cor e badge, mantendo o card limpo e funcional.
+    *   **Consistência**: O fluxo de "Marca como Cobrado" retém a restrição de 24h, garantindo o controle operacional.
 
-2.  **SincronizaÃ§Ã£o de Estado e Mapeamento (`useAppState.ts`, `useAuth.ts`)**:
-    *   Atualizada a lÃ³gica de mapeamento do perfil (`mapProfileFromDB`) para ler de `contato_whatsapp`.
-    *   Implementados mappers resilientes que suportam dados legados durante a transiÃ§Ã£o, garantindo que perfis antigos nÃ£o percam o vÃ­nculo de contato.
+2.  **Fluidez de Navegação**:
+    *   **Transições**: Ajuste no `framer-motion` de todas as telas para `duration: 0.1` com `ease: 'linear'`, tornando a navegação instantânea e eliminando a percepção de carregamento, mantendo transições suaves.
 
-3.  **PersistÃªncia e ServiÃ§os de Perfil (`operatorProfileService.ts`)**:
-    *   RefatoraÃ§Ã£o completa do `ProfileUpdatePayload` para alinhar com o schema real do PostgreSQL (`perfis`).
-    *   Ajustados os mÃ©todos `updateProfile`, `importProfileFromSheet` e `curateProfileData` para tratar corretamente o campo `contato_whatsapp`.
-    *   **ValidaÃ§Ã£o Proativa**: Implementada conferÃªncia de campos nulos ou indefinidos antes do envio ao Supabase, evitando erros de integridade.
+3.  **Investigação de Erros (Em Andamento)**:
+    *   **Perfis/Aporte**: Mapeamento inicial do `profileId` para corrigir falhas em aportes.
+    *   **Portal do Cliente**: Auditoria de links e mensagens de cobrança.
 
-4.  **ConsistÃªncia da Interface (UI)**:
-    *   **Dashboard e Portal**: O `ClientPortalView` agora consome `contato_whatsapp` para iniciar atendimentos, garantindo que o botÃ£o de suporte funcione corretamente.
-    *   **FormulÃ¡rios**: A pÃ¡gina de Perfil (`ProfilePage.tsx`) agora vincula o input de "WhatsApp de Suporte" diretamente ao estado corrigido, assegurando persistÃªncia real nas ediÃ§Ãµes.
-    *   **Acesso (Gate)**: O `AppGate.tsx` repassa o nÃºmero de suporte correto para a tela de autenticaÃ§Ã£o a partir dos perfis salvos no dispositivo.
+---
+
+## Atualização - Gestão de Cobrança, Detalhamento de Atraso e Estabilidade (2026-04-30)
+
+### Escopo executado
+Implementação de funcionalidades de controle operacional de cobrança e transparência em negociações, além de correções de integridade no perfil e estabilidade de UI.
+
+1.  **Gestão de Cobrança Inteligente ("Mark as Billed")**:
+    *   **Restrição de 24h**: Implementado intervalo obrigatório de 24 horas entre cobranças para evitar spam e organizar o fluxo operacional.
+    *   **Contador Regressivo**: Adicionado cronômetro em tempo real (ex: `Próxima em: 23h 59m`) visível no card quando a cobrança está bloqueada.
+    *   **Intensidade de Cobrança**: Rastreamento do total de contatos realizados (`billing_count`) para sinalizar contratos que exigem mais esforço.
+    *   **Automação**: Ao clicar no ícone do WhatsApp para contratos atrasados, o sistema marca a cobrança e incrementa a intensidade automaticamente.
+    *   **Feedback**: Badges de "Cobrado Hoje" e histórico de data no corpo do card.
+
+2.  **Detalhamento de Atraso (Transparência de Negociação)**:
+    *   **Página de Contrato**: Seção de "Detalhamento de Atraso" na `ContractDetailsPage.tsx` listando parcelas individuais com distinção entre Principal e Encargos.
+
+3.  **Estabilidade de Autenticação e Sistema**:
+    *   **Supabase Auth Fix**: Remoção do erro `Lock was released because another request stole it` via singleton promise em `lib/supabase.ts` e retry automático em `useAuth.ts`.
+    *   **Refatoração de Perfil**: Remoção definitiva da coluna inexistente `support_phone`, corrigindo falhas no salvamento de perfis de operadores.
 
 ### Arquivos alterados
-*   `/types.ts`: AtualizaÃ§Ã£o da tipagem global.
+*   `/types.ts` & `/services/adapters/loanAdapter.ts`: Suporte à nova métrica `billing_count`.
+*   `/services/contracts.service.ts`: Lógica de incremento atômico de cobrança.
+*   `/lib/supabase.ts`: Sincronização de sessões concorrentes.
+*   `/components/cards/LoanCardComposition/Header.tsx`: UI de contagem regressiva e restrição de 24h.
+*   `/IMPLEMENTACAO_RESUMO.md`: Atualização da documentação técnica.
+
+### Requisitos de Banco de Dados (SQL Manual)
+Execute os comandos abaixo para habilitar as novas funcionalidades:
+```sql
+ALTER TABLE contratos 
+ADD COLUMN IF NOT EXISTS last_billed_at TIMESTAMPTZ,
+ADD COLUMN IF NOT EXISTS billing_count INTEGER DEFAULT 0;
+
+COMMENT ON COLUMN contratos.billing_count IS 'Número total de cobranças realizadas neste contrato';
+```
+
+---
+
+## Atualização - Correção de Atribuição de Colunas de Perfil e Consistência de Banco (2026-04-19)
+
+### Escopo executado
+Resolução de erros de atualização de perfil causados pelo uso de colunas inexistentes (`support_phone` ou `support phone`) na tabela `perfis`. O sistema agora utiliza exclusivamente as colunas reais do banco: `contato_whatsapp` (para suporte/chat) e `phone` (telefone geral).
+
+1.  **Refatoração de Tipagem e Entidades (`types.ts`)**:
+    *   Substituído o campo `supportPhone` por `contato_whatsapp` na interface `UserProfile`.
+    *   Garantida a consistência em outras entidades que referenciam o perfil, como a interface de `Loan`.
+
+2.  **Sincronização de Estado e Mapeamento (`useAppState.ts`, `useAuth.ts`)**:
+    *   Atualizada a lógica de mapeamento do perfil (`mapProfileFromDB`) para ler de `contato_whatsapp`.
+    *   Implementados mappers resilientes que suportam dados legados durante a transição, garantindo que perfis antigos não percam o vínculo de contato.
+
+3.  **Persistência e Serviços de Perfil (`operatorProfileService.ts`)**:
+    *   Refatoração completa do `ProfileUpdatePayload` para alinhar com o schema real do PostgreSQL (`perfis`).
+    *   Ajustados os métodos `updateProfile`, `importProfileFromSheet` e `curateProfileData` para tratar corretamente o campo `contato_whatsapp`.
+    *   **Validação Proativa**: Implementada conferência de campos nulos ou indefinidos antes do envio ao Supabase, evitando erros de integridade.
+
+4.  **Consistência da Interface (UI)**:
+    *   **Dashboard e Portal**: O `ClientPortalView` agora consome `contato_whatsapp` para iniciar atendimentos, garantindo que o botão de suporte funcione corretamente.
+    *   **Formulários**: A página de Perfil (`ProfilePage.tsx`) agora vincula o input de "WhatsApp de Suporte" diretamente ao estado corrigido, assegurando persistência real nas edições.
+    *   **Acesso (Gate)**: O `AppGate.tsx` repassa o número de suporte correto para a tela de autenticação a partir dos perfis salvos no dispositivo.
+
+### Arquivos alterados
+*   `/types.ts`: Atualização da tipagem global.
 *   `/hooks/useAppState.ts`: Ajuste no carregamento do perfil.
-*   `/features/auth/useAuth.ts`: Ajuste na recuperaÃ§Ã£o de perfil e login.
+*   `/features/auth/useAuth.ts`: Ajuste na recuperação de perfil e login.
 *   `/features/profile/services/operatorProfileService.ts`: Alinhamento total com o schema do banco.
 *   `/services/adapters/loanAdapter.ts`: Mapeamento resiliente de contratos.
-*   `/pages/ProfilePage.tsx`: CorreÃ§Ã£o de bindings no formulÃ¡rio de ediÃ§Ã£o.
+*   `/pages/ProfilePage.tsx`: Correção de bindings no formulário de edição.
 *   `/components/AppGate.tsx`: Passagem de metadados para login.
 *   `/containers/ClientPortal/ClientPortalView.tsx`: Uso correto do contato no portal devedor.
 
-### Arquivos nÃ£o alterados fora do escopo
+### Arquivos não alterados fora do escopo
 *   Confirmado: Nenhuma nova coluna foi criada no banco de dados.
-*   Confirmado: Nenhuma alteraÃ§Ã£o em lÃ³gica financeira ou fluxos de pagamento.
+*   Confirmado: Nenhuma alteração em lógica financeira ou fluxos de pagamento.
 
 ---
 
-## AtualizaÃ§Ã£o - CorreÃ§Ã£o de ReproduÃ§Ã£o de Ãudio e Assinatura de Anexos (2026-04-19)
+## Atualização - Correção de Reprodução de Áudio e Assinatura de Anexos (2026-04-19)
 
 ### Escopo executado
-ResoluÃ§Ã£o do erro "The element has no supported sources" que impedia a reproduÃ§Ã£o de Ã¡udios no chat, causado por falhas na geraÃ§Ã£o de URLs assinadas e caminhos de arquivo incompletos.
+Resolução do erro "The element has no supported sources" que impedia a reprodução de áudios no chat, causado por falhas na geração de URLs assinadas e caminhos de arquivo incompletos.
 
 1.  **Assinatura Universal de Anexos (`supportChat.service.ts`)**:
-    *   A lÃ³gica de detecÃ§Ã£o de arquivos (`hasFile`) foi simplificada para reconhecer qualquer mensagem que possua um `file_url`, independente do `type`. Isso garante que Ã¡udios continuem sendo assinados corretamente mesmo apÃ³s redirecionamentos de tipo para o banco.
+    *   A lógica de detecção de arquivos (`hasFile`) foi simplificada para reconhecer qualquer mensagem que possua um `file_url`, independente do `type`. Isso garante que áudios continuem sendo assinados corretamente mesmo após redirecionamentos de tipo para o banco.
 
-2.  **SincronizaÃ§Ã£o Realtime (`supportAdapter.ts`)**:
-    *   Implementada assinatura assÃ­ncrona para mensagens recebidas via Supabase Realtime. Agora, mensagens com anexos vindas do socket tÃªm sua URL assinada antes de serem exibidas, resolvendo o problema de caminhos internos (storage paths) que causavam o erro de fonte de mÃ­dia.
+2.  **Sincronização Realtime (`supportAdapter.ts`)**:
+    *   Implementada assinatura assíncrona para mensagens recebidas via Supabase Realtime. Agora, mensagens com anexos vindas do socket têm sua URL assinada antes de serem exibidas, resolvendo o problema de caminhos internos (storage paths) que causavam o erro de fonte de mídia.
 
-3.  **DiagnÃ³stico no Player (`AudioPlayer.tsx`)**:
-    *   Adicionado tratador de evento `onError` ao elemento `<audio>` para capturar e logar detalhes tÃ©cnicos de `MediaError`. ReforÃ§ada a validaÃ§Ã£o no `togglePlay` para evitar submissÃµes de Ã¡udio com `src` invÃ¡lido.
+3.  **Diagnóstico no Player (`AudioPlayer.tsx`)**:
+    *   Adicionado tratador de evento `onError` ao elemento `<audio>` para capturar e logar detalhes técnicos de `MediaError`. Reforçada a validação no `togglePlay` para evitar submissões de áudio com `src` inválido.
 
 ### Arquivos alterados
-*   `/services/supportChat.service.ts`: GeneralizaÃ§Ã£o da lÃ³gica de assinatura de URLs e adiÃ§Ã£o de logs de erro detalhados.
+*   `/services/supportChat.service.ts`: Generalização da lógica de assinatura de URLs e adição de logs de erro detalhados.
 *   `/components/chat/adapters/supportAdapter.ts`: Assinatura de URLs em tempo real.
-*   `/features/support/components/AudioPlayer.tsx`: AdiÃ§Ã£o de logs de erro, interface de falha com link de "Baixar" e proteÃ§Ã£o de estado.
+*   `/features/support/components/AudioPlayer.tsx`: Adição de logs de erro, interface de falha com link de "Baixar" e proteção de estado.
 
 ---
 
-## AtualizaÃ§Ã£o - CabeÃ§alho de Chat Personalizado e FormataÃ§Ã£o de Nomes (2026-04-19)
+## Atualização - Cabeçalho de Chat Personalizado e Formatação de Nomes (2026-04-19)
 
 ### Escopo executado
-ImplementaÃ§Ã£o da solicitaÃ§Ã£o do usuÃ¡rio para exibir o primeiro e o segundo nome do cliente no cabeÃ§alho do chat, garantindo uma interface mais personalizada e informativa.
+Implementação da solicitação do usuário para exibir o primeiro e o segundo nome do cliente no cabeçalho do chat, garantindo uma interface mais personalizada e informativa.
 
-1.  **Nova Utilidade de FormataÃ§Ã£o (`formatFirstAndSecondName`)**:
-    *   Criada uma funÃ§Ã£o robusta em `utils/formatters.ts` que extrai apenas as duas primeiras partes de um nome completo, aplicando a capitalizaÃ§Ã£o correta.
-    *   Isso evita nomes excessivamente longos no cabeÃ§alho mantendo a identificaÃ§Ã£o pessoal.
+1.  **Nova Utilidade de Formatação (`formatFirstAndSecondName`)**:
+    *   Criada uma função robusta em `utils/formatters.ts` que extrai apenas as duas primeiras partes de um nome completo, aplicando a capitalização correta.
+    *   Isso evita nomes excessivamente longos no cabeçalho mantendo a identificação pessoal.
 
-2.  **PersonalizaÃ§Ã£o no Portal do Cliente**:
+2.  **Personalização no Portal do Cliente**:
     *   O `PortalChatDrawer` agora extrai dinamicamente o nome do devedor (`debtorName`) do objeto de contrato (`loan`).
-    *   Este nome Ã© formatado e passado como tÃ­tulo para o `UnifiedChat`, substituindo o texto genÃ©rico "Atendimento Direto".
-    *   O contexto do chat tambÃ©m foi atualizado para carregar a identidade real do cliente, permitindo que o adapter de suporte tenha acesso ao nome correto.
+    *   Este nome é formatado e passado como título para o `UnifiedChat`, substituindo o texto genérico "Atendimento Direto".
+    *   O contexto do chat também foi atualizado para carregar a identidade real do cliente, permitindo que o adapter de suporte tenha acesso ao nome correto.
 
-3.  **PadronizaÃ§Ã£o no Painel do Operador**:
-    *   O `supportAdapter` foi atualizado para utilizar a nova formataÃ§Ã£o no mÃ©todo `getHeader`.
-    *   Agora, qualquer chat aberto pelo operador exibirÃ¡ automaticamente o nome do cliente (1Âº e 2Âº nomes) no tÃ­tulo, de forma consistente com o portal.
+3.  **Padronização no Painel do Operador**:
+    *   O `supportAdapter` foi atualizado para utilizar a nova formatação no método `getHeader`.
+    *   Agora, qualquer chat aberto pelo operador exibirá automaticamente o nome do cliente (1º e 2º nomes) no título, de forma consistente com o portal.
 
 4.  **Melhoria Visual no Avatar (`initials`)**:
-    *   O componente `UnifiedChat` agora calcula as iniciais baseando-se no primeiro e segundo nome exibidos (ex: "JoÃ£o Silva" -> "JS").
-    *   Anteriormente, exibia apenas a primeira letra do tÃ­tulo.
+    *   O componente `UnifiedChat` agora calcula as iniciais baseando-se no primeiro e segundo nome exibidos (ex: "João Silva" -> "JS").
+    *   Anteriormente, exibia apenas a primeira letra do título.
 
 ### Arquivos alterados
-*   `/utils/formatters.ts`: AdiÃ§Ã£o do `formatFirstAndSecondName`.
-*   `/components/chat/adapters/supportAdapter.ts`: IntegraÃ§Ã£o da formataÃ§Ã£o no tÃ­tulo do header.
-*   `/features/portal/components/PortalChatDrawer.tsx`: ExtraÃ§Ã£o dinÃ¢mica e personalizaÃ§Ã£o do tÃ­tulo para o cliente.
-*   `/components/chat/UnifiedChat.tsx`: LÃ³gica aprimorada de iniciais para o avatar e correÃ§Ã£o de erro de ordem de Hooks (React Rules of Hooks).
+*   `/utils/formatters.ts`: Adição do `formatFirstAndSecondName`.
+*   `/components/chat/adapters/supportAdapter.ts`: Integração da formatação no título do header.
+*   `/features/portal/components/PortalChatDrawer.tsx`: Extração dinâmica e personalização do título para o cliente.
+*   `/components/chat/UnifiedChat.tsx`: Lógica aprimorada de iniciais para o avatar e correção de erro de ordem de Hooks (React Rules of Hooks).
 
 ---
 
-## AtualizaÃ§Ã£o - ResoluÃ§Ã£o de Erros de Tipo e GeolocalizaÃ§Ã£o no Chat (2026-04-19)
+## Atualização - Resolução de Erros de Tipo e Geolocalização no Chat (2026-04-19)
 
 ### Escopo executado
-CorreÃ§Ã£o de erros crÃ­ticos de banco de dados (`type_check`) e de armazenamento (`RLS`) que impediam o uso pleno do chat por clientes no portal, especialmente no envio de localizaÃ§Ã£o e arquivos.
+Correção de erros críticos de banco de dados (`type_check`) e de armazenamento (`RLS`) que impediam o uso pleno do chat por clientes no portal, especialmente no envio de localização e arquivos.
 
 1.  **Compatibilidade de Banco (`type_check`)**:
-    *   Identificado que a restriÃ§Ã£o `mensagens_suporte_type_check` no PostgreSQL impedia o valor `'location'` na coluna `type`.
-    *   **SoluÃ§Ã£o**: O `supportChatService` agora mapeia automaticamente mensagens do tipo `location` para `text` antes da inserÃ§Ã£o, preservando o tipo real e coordenadas no campo `metadata`.
-    *   **RenderizaÃ§Ã£o**: O componente `ChatMessages` foi atualizado para ler o `original_type` do metadata, garantindo que o link do mapa e o Ã­cone de localizaÃ§Ã£o continuem sendo exibidos corretamente para o usuÃ¡rio.
+    *   Identificado que a restrição `mensagens_suporte_type_check` no PostgreSQL impedia o valor `'location'` na coluna `type`.
+    *   **Solução**: O `supportChatService` agora mapeia automaticamente mensagens do tipo `location` para `text` antes da inserção, preservando o tipo real e coordenadas no campo `metadata`.
+    *   **Renderização**: O componente `ChatMessages` foi atualizado para ler o `original_type` do metadata, garantindo que o link do mapa e o ícone de localização continuem sendo exibidos corretamente para o usuário.
 
 2.  **Robustez no Armazenamento (RLS Storage)**:
-    *   Tratamento de erro aprimorado para falhas de upload no bucket `support_chat`. Quando um usuÃ¡rio do portal (anon) tenta enviar um arquivo e encontra restriÃ§Ã£o de RLS, o sistema agora captura o erro e sugere alternativas (como envio via WhatsApp configurado no perfil).
+    *   Tratamento de erro aprimorado para falhas de upload no bucket `support_chat`. Quando um usuário do portal (anon) tenta enviar um arquivo e encontra restrição de RLS, o sistema agora captura o erro e sugere alternativas (como envio via WhatsApp configurado no perfil).
 
-3.  **GeolocalizaÃ§Ã£o e PermissÃµes**:
-    *   Refinamento do feedback no `ChatInput` para casos onde o navegador bloqueia o acesso Ã  localizaÃ§Ã£o ou o timeout Ã© atingido, com mensagens claras em PortuguÃªs.
+3.  **Geolocalização e Permissões**:
+    *   Refinamento do feedback no `ChatInput` para casos onde o navegador bloqueia o acesso à localização ou o timeout é atingido, com mensagens claras em Português.
 
 ### Arquivos alterados
 *   `/services/supportChat.service.ts`: Mapeamento preventivo de tipos e tratamento de RLS.
-*   `/features/support/components/ChatMessages.tsx`: RenderizaÃ§Ã£o baseada em metadata (`original_type`).
-*   `/sql/fix_storage_rls_portal.sql`: **Novo arquivo** com script SQL para correÃ§Ã£o definitiva de RLS e Constraints no Supabase.
-*   `/layout/AppShell.tsx`: Fix do posicionamento da badge de notificaÃ§Ãµes (o unread count estava "flutuando" para o botÃ£o de 'Novo Contrato' por falta de `relative` context; agora estÃ¡ ancorado corretamente no botÃ£o de Chat).
-*   `/IMPLEMENTACAO_RESUMO.md`: DocumentaÃ§Ã£o tÃ©cnica da soluÃ§Ã£o.
+*   `/features/support/components/ChatMessages.tsx`: Renderização baseada em metadata (`original_type`).
+*   `/sql/fix_storage_rls_portal.sql`: **Novo arquivo** com script SQL para correção definitiva de RLS e Constraints no Supabase.
+*   `/layout/AppShell.tsx`: Fix do posicionamento da badge de notificações (o unread count estava "flutuando" para o botão de 'Novo Contrato' por falta de `relative` context; agora está ancorado corretamente no botão de Chat).
+*   `/IMPLEMENTACAO_RESUMO.md`: Documentação técnica da solução.
 
-### Arquivos nÃ£o alterados fora do escopo
-*   Nenhuma alteraÃ§Ã£o em rotas principais ou modelos financeiros.
+### Arquivos não alterados fora do escopo
+*   Nenhuma alteração em rotas principais ou modelos financeiros.
 
 ---
 
-## AtualizaÃ§Ã£o - Feedback de Erro e DiagnÃ³stico no Chat do Portal (2026-04-19)
+## Atualização - Feedback de Erro e Diagnóstico no Chat do Portal (2026-04-19)
 
 ### Escopo executado
-ImplementaÃ§Ã£o de sistema de feedback visual e logs de diagnÃ³stico para resolver a opacidade nos erros de envio de mensagens no portal do cliente.
+Implementação de sistema de feedback visual e logs de diagnóstico para resolver a opacidade nos erros de envio de mensagens no portal do cliente.
 
 1.  **Feedback Visual (Toasts)**:
-    *   Integrado o `useModal` ao componente `UnifiedChat`. Agora, falhas no envio de mensagens disparam notificaÃ§Ãµes "toast" na cor Rose, informando o erro especÃ­fico ao usuÃ¡rio final.
+    *   Integrado o `useModal` ao componente `UnifiedChat`. Agora, falhas no envio de mensagens disparam notificações "toast" na cor Rose, informando o erro específico ao usuário final.
 
-2.  **Rastreabilidade e DiagnÃ³stico**:
-    *   **Logs de Contexto**: O `PortalChatDrawer` agora registra no console a resoluÃ§Ã£o completa do contexto (ID do Contrato, ID do Profissional e ID do Cliente), permitindo identificar instantaneamente se algum dado vital estÃ¡ ausente.
-    *   **Monitoramento de Envio**: O `UnifiedChat` loga cada tentativa de envio e o resultado (sucesso ou erro detalhado), facilitando a depuraÃ§Ã£o em tempo real.
+2.  **Rastreabilidade e Diagnóstico**:
+    *   **Logs de Contexto**: O `PortalChatDrawer` agora registra no console a resolução completa do contexto (ID do Contrato, ID do Profissional e ID do Cliente), permitindo identificar instantaneamente se algum dado vital está ausente.
+    *   **Monitoramento de Envio**: O `UnifiedChat` loga cada tentativa de envio e o resultado (sucesso ou erro detalhado), facilitando a depuração em tempo real.
 
 3.  **Refinamento de Mensagens de Erro**:
-    *   O `supportAdapter` foi atualizado para lanÃ§ar erros verbosos e especÃ­ficos sobre identificaÃ§Ã£o (ex: "ID Profissional InvÃ¡lido"), em vez de mensagens genÃ©ricas. Isso ajuda a distinguir erros de configuraÃ§Ã£o de erros de banco de dados.
+    *   O `supportAdapter` foi atualizado para lançar erros verbosos e específicos sobre identificação (ex: "ID Profissional Inválido"), em vez de mensagens genéricas. Isso ajuda a distinguir erros de configuração de erros de banco de dados.
 
 ### Arquivos alterados
-*   `/components/chat/UnifiedChat.tsx`: ImplementaÃ§Ã£o de Toasts e logs de envio.
-*   `/components/chat/adapters/supportAdapter.ts`: Erros de identificaÃ§Ã£o mais descritivos.
-*   `/features/portal/components/PortalChatDrawer.tsx`: Logs de diagnÃ³stico de contexto.
+*   `/components/chat/UnifiedChat.tsx`: Implementação de Toasts e logs de envio.
+*   `/components/chat/adapters/supportAdapter.ts`: Erros de identificação mais descritivos.
+*   `/features/portal/components/PortalChatDrawer.tsx`: Logs de diagnóstico de contexto.
 
 ---
 
-## AtualizaÃ§Ã£o - CorreÃ§Ã£o de InteraÃ§Ã£o e Integridade no Chat (Portal e Operador) (2026-04-19)
+## Atualização - Correção de Interação e Integridade no Chat (Portal e Operador) (2026-04-19)
 
 ### Escopo executado
-ResoluÃ§Ã£o de problemas de botÃµes travados, erros de envio no portal ("Dados InvÃ¡lidos" e "Foreign Key Violation") e instabilidade na UI atravÃ©s de refatoraÃ§Ã£o de contexto e validaÃ§Ã£o.
+Resolução de problemas de botões travados, erros de envio no portal ("Dados Inválidos" e "Foreign Key Violation") e instabilidade na UI através de refatoração de contexto e validação.
 
 1.  **Integridade de Dados e Banco**:
-    *   **Captura de ProfileID**: O hook `useClientPortalLogic` agora recupera o `profile_id` do profissional, garantindo que o chat no portal tenha sempre um destinatÃ¡rio vÃ¡lido, evitando erros de chave estrangeira.
-    *   **ValidaÃ§Ã£o FlexÃ­vel**: O adaptador de suporte foi ajustado para permitir conversas de "Suporte Direto" sem a necessidade de um contrato (loanID) UUID estrito, usando o ID do profissional como fallback seguro.
+    *   **Captura de ProfileID**: O hook `useClientPortalLogic` agora recupera o `profile_id` do profissional, garantindo que o chat no portal tenha sempre um destinatário válido, evitando erros de chave estrangeira.
+    *   **Validação Flexível**: O adaptador de suporte foi ajustado para permitir conversas de "Suporte Direto" sem a necessidade de um contrato (loanID) UUID estrito, usando o ID do profissional como fallback seguro.
 
-2.  **ResoluÃ§Ã£o de Conflitos de UI/UX**:
-    *   **Z-Index e Camadas**: Elevado o `z-index` do container de input do chat para garantir que ele permaneÃ§a interativo mesmo sob overlays de status (como "Atendimento Encerrado").
-    *   **Limpeza de Drawer**: Removida barra inferior redundante no portal do cliente que causava sobreposiÃ§Ãµes em dispositivos mÃ³veis, liberando espaÃ§o para o teclado e inputs.
+2.  **Resolução de Conflitos de UI/UX**:
+    *   **Z-Index e Camadas**: Elevado o `z-index` do container de input do chat para garantir que ele permaneça interativo mesmo sob overlays de status (como "Atendimento Encerrado").
+    *   **Limpeza de Drawer**: Removida barra inferior redundante no portal do cliente que causava sobreposições em dispositivos móveis, liberando espaço para o teclado e inputs.
 
-3.  **EstabilizaÃ§Ã£o e Performance**:
-    *   **MemoizaÃ§Ã£o de Contexto**: Refatorados os componentes `PortalChatDrawer` e `OperatorSupportChat` para estabilizar os objetos de contexto passados ao `UnifiedChat`. Isso elimina loops de re-renderizaÃ§Ã£o e garante que o chat nÃ£o "pisque" ou perca estado durante o uso.
-    *   **Tipagem Segura**: SeparaÃ§Ã£o clara de contextos de CaptaÃ§Ã£o e Suporte para satisfazer os requisitos do TypeScript sem sacrificar a flexibilidade.
+3.  **Estabilização e Performance**:
+    *   **Memoização de Contexto**: Refatorados os componentes `PortalChatDrawer` e `OperatorSupportChat` para estabilizar os objetos de contexto passados ao `UnifiedChat`. Isso elimina loops de re-renderização e garante que o chat não "pisque" ou perca estado durante o uso.
+    *   **Tipagem Segura**: Separação clara de contextos de Captação e Suporte para satisfazer os requisitos do TypeScript sem sacrificar a flexibilidade.
 
 ### Arquivos alterados
 *   `/features/portal/hooks/useClientPortalLogic.ts`: Captura de metadados do perfil.
-*   `/features/portal/components/PortalChatDrawer.tsx`: ReorganizaÃ§Ã£o lÃ³gica e limpeza de UI.
+*   `/features/portal/components/PortalChatDrawer.tsx`: Reorganização lógica e limpeza de UI.
 *   `/features/portal/ClientPortalView.tsx`: Passagem de contexto enriquecida.
-*   `/components/chat/adapters/supportAdapter.ts`: Ajuste de validaÃ§Ã£o e roteamento de mensagens.
+*   `/components/chat/adapters/supportAdapter.ts`: Ajuste de validação e roteamento de mensagens.
 *   `/components/chat/UnifiedChat.tsx`: Ajuste de profundidade de camadas (z-index).
-*   `/features/support/OperatorSupportChat.tsx`: EstabilizaÃ§Ã£o de contextos e correÃ§Ã£o de tipos.
+*   `/features/support/OperatorSupportChat.tsx`: Estabilização de contextos e correção de tipos.
 
 ---
 
-## AtualizaÃ§Ã£o - InteligÃªncia de NegÃ³cios e Dashboard de RelatÃ³rios (2026-04-19)
+## Atualização - Inteligência de Negócios e Dashboard de Relatórios (2026-04-19)
 
 ### Escopo executado
-ImplementaÃ§Ã£o de um mÃ³dulo robusto de Business Intelligence (BI) para anÃ¡lise profunda da performance financeira e riscos da carteira.
+Implementação de um módulo robusto de Business Intelligence (BI) para análise profunda da performance financeira e riscos da carteira.
 
-1.  **Dashboard de InteligÃªncia (`ReportsPage`)**:
-    *   **KPIs em Tempo Real**: VisualizaÃ§Ã£o de InadimplÃªncia (NPL), ROI Estimado, Yield da Carteira, Taxa de AlocaÃ§Ã£o e Ticket MÃ©dio.
-    *   **Performance por Fonte**: GrÃ¡ficos de distribuiÃ§Ã£o de capital alocado x saldo disponÃ­vel por investidor/origem.
-    *   **Insights de IA**: SugestÃµes automÃ¡ticas baseadas em previsibilidade financeira e tendÃªncias de reinvestimento.
-    *   **Stealth Mode Nativo**: MÃ¡scaras de privacidade aplicadas a todos os valores sensÃ­veis do dashboard de BI.
+1.  **Dashboard de Inteligência (`ReportsPage`)**:
+    *   **KPIs em Tempo Real**: Visualização de Inadimplência (NPL), ROI Estimado, Yield da Carteira, Taxa de Alocação e Ticket Médio.
+    *   **Performance por Fonte**: Gráficos de distribuição de capital alocado x saldo disponível por investidor/origem.
+    *   **Insights de IA**: Sugestões automáticas baseadas em previsibilidade financeira e tendências de reinvestimento.
+    *   **Stealth Mode Nativo**: Máscaras de privacidade aplicadas a todos os valores sensíveis do dashboard de BI.
 
-2.  **IntegraÃ§Ã£o de NavegaÃ§Ã£o**:
-    *   **NavHub**: InclusÃ£o do item "InteligÃªncia" (RelatÃ³rios) no menu lateral e drawer mobile, com Ã­cone de PieChart.
+2.  **Integração de Navegação**:
+    *   **NavHub**: Inclusão do item "Inteligência" (Relatórios) no menu lateral e drawer mobile, com ícone de PieChart.
     *   **AppTab & Routing**: Registro do novo tipo de aba no sistema de rotas e tipagem global.
-    *   **Lazy Loading**: ImplementaÃ§Ã£o de carregamento sob demanda para otimizaÃ§Ã£o de performance.
+    *   **Lazy Loading**: Implementação de carregamento sob demanda para otimização de performance.
 
 3.  **Refinamento de UI/UX**:
-    *   Uso de animaÃ§Ãµes suaves (`motion`) para transiÃ§Ã£o de abas.
+    *   Uso de animações suaves (`motion`) para transição de abas.
     *   Interface dark-mode otimizada com foco em leitura de dados financeiros.
 
 ### Arquivos alterados
-*   `/types.ts`: AdiÃ§Ã£o da aba `REPORTS`.
-*   `/layout/NavHub.tsx`: IntegraÃ§Ã£o visual no menu de navegaÃ§Ã£o e correÃ§Ã£o de importaÃ§Ã£o do `PieChart`.
-*   `/App.tsx`: Gerenciamento de rotas e renderizaÃ§Ã£o do novo container.
-*   `/features/reports/pages/ReportsPage.tsx`: **Novo arquivo** contendo a lÃ³gica e interface de BI.
+*   `/types.ts`: Adição da aba `REPORTS`.
+*   `/layout/NavHub.tsx`: Integração visual no menu de navegação e correção de importação do `PieChart`.
+*   `/App.tsx`: Gerenciamento de rotas e renderização do novo container.
+*   `/features/reports/pages/ReportsPage.tsx`: **Novo arquivo** contendo a lógica e interface de BI.
 
 ---
 
-## AtualizaÃ§Ã£o - Overhaul Completo do Sistema de Chat (Realtime & Autoridade) (2026-04-19)
+## Atualização - Overhaul Completo do Sistema de Chat (Realtime & Autoridade) (2026-04-19)
 
 ### Escopo executado
-RevisÃ£o profunda da arquitetura de chat para garantir funcionamento bi-direcional (Operador <-> Cliente) sem erros de banco e com sincronizaÃ§Ã£o perfeita.
+Revisão profunda da arquitetura de chat para garantir funcionamento bi-direcional (Operador <-> Cliente) sem erros de banco e com sincronização perfeita.
 
-1.  **Integridade de Identidade (PadrÃ£o SÃªnior)**:
-    *   **ConsistÃªncia de IDs**: Garantido que o campo `profile_id` em `mensagens_suporte` sempre receba o ID da tabela `perfis` (Professional/Tenant), nunca o ID de devedores ou IDs brutos do Auth.
+1.  **Integridade de Identidade (Padrão Sênior)**:
+    *   **Consistência de IDs**: Garantido que o campo `profile_id` em `mensagens_suporte` sempre receba o ID da tabela `perfis` (Professional/Tenant), nunca o ID de devedores ou IDs brutos do Auth.
     *   **Autoridade de Mensagem**: Introduzido o conceito de `myId` no contexto do chat para distinguir o "Dono do Dado" (Tenant) do "Autor da Mensagem" (Sender).
 
-2.  **CorreÃ§Ã£o do Realtime (SincronizaÃ§Ã£o Proativa)**:
-    *   **Filtro do Adapter**: Corrigido o filtro de inscriÃ§Ã£o que estava descartando mensagens vÃ¡lidas por comparar o ID do Tenant com o ID do Autor. Agora o filtro usa `sender_user_id` e permite que o autor receba sua prÃ³pria confirmaÃ§Ã£o de mensagem (necessÃ¡rio pois o componente nÃ£o usa estado otimista).
-    *   **Feedback Visual**: Garantido que o som de notificaÃ§Ã£o ocorra apenas para mensagens de terceiros.
+2.  **Correção do Realtime (Sincronização Proativa)**:
+    *   **Filtro do Adapter**: Corrigido o filtro de inscrição que estava descartando mensagens válidas por comparar o ID do Tenant com o ID do Autor. Agora o filtro usa `sender_user_id` e permite que o autor receba sua própria confirmação de mensagem (necessário pois o componente não usa estado otimista).
+    *   **Feedback Visual**: Garantido que o som de notificação ocorra apenas para mensagens de terceiros.
 
 3.  **Melhoria no Portal do Cliente**:
-    *   **VÃ­nculo de Atendimento**: O portal agora recupera e utiliza o `profile_id` correto do profissional responsÃ¡vel pelo contrato do cliente, satisfazendo a constraint de FK no banco de dados.
-    *   **ResiliÃªncia**: Implementado tratamento para casos onde o ID do profissional Ã© nulo, impedindo quebras de interface.
+    *   **Vínculo de Atendimento**: O portal agora recupera e utiliza o `profile_id` correto do profissional responsável pelo contrato do cliente, satisfazendo a constraint de FK no banco de dados.
+    *   **Resiliência**: Implementado tratamento para casos onde o ID do profissional é nulo, impedindo quebras de interface.
 
-4.  **Limpeza de CÃ³digo**:
-    *   Eliminada dependÃªncia de `getAuthUid` no serviÃ§o de mensagens para evitar confusÃ£o entre `auth.users.id` e `perfis.id` em fluxos de portal.
+4.  **Limpeza de Código**:
+    *   Eliminada dependência de `getAuthUid` no serviço de mensagens para evitar confusão entre `auth.users.id` e `perfis.id` em fluxos de portal.
 
 ### Arquivos alterados
-*   `/components/chat/adapters/supportAdapter.ts`: AtualizaÃ§Ã£o do contexto e lÃ³gica de filtragem realtime.
-*   `/services/supportChat.service.ts`: ReformulaÃ§Ã£o do mÃ©todo `sendMessage` para ser agnÃ³stico Ã  identidade delegada.
+*   `/components/chat/adapters/supportAdapter.ts`: Atualização do contexto e lógica de filtragem realtime.
+*   `/services/supportChat.service.ts`: Reformulação do método `sendMessage` para ser agnóstico à identidade delegada.
 *   `/features/support/OperatorSupportChat.tsx`: Ajuste na passagem de contexto (Dono vs Autor).
-*   `/features/portal/components/PortalChatDrawer.tsx`: Ajuste na passagem de contexto (VinculaÃ§Ã£o de Tenant).
+*   `/features/portal/components/PortalChatDrawer.tsx`: Ajuste na passagem de contexto (Vinculação de Tenant).
 
-### Arquivos nÃ£o alterados fora do escopo
-*   Confirmado: Nenhuma alteraÃ§Ã£o em layout global, dashboards, financeiro ou jurÃ­dico.
+### Arquivos não alterados fora do escopo
+*   Confirmado: Nenhuma alteração em layout global, dashboards, financeiro ou jurídico.
 
 ---
 
-## AtualizaÃ§Ã£o - CorreÃ§Ã£o do Envio de Mensagens no Portal (2026-04-19)
+## Atualização - Correção do Envio de Mensagens no Portal (2026-04-19)
 
 ### Escopo executado
-ResoluÃ§Ã£o do bug que impedia os clientes de enviarem mensagens corretamente pelo portal ou causava atribuiÃ§Ã£o incorreta da autoria da mensagem.
+Resolução do bug que impedia os clientes de enviarem mensagens corretamente pelo portal ou causava atribuição incorreta da autoria da mensagem.
 
 1.  **Ajuste de Identidade no `supportChatService`**:
-    *   Adicionado o parÃ¢metro `clientId` para capturar explicitamente o UUID do autor quando o remetente Ã© um cliente.
-    *   A lÃ³gica de autoria agora prioriza o `clientId` enviado pela interface, usando o `profileId` apenas como fallback para compatibilidade legada.
+    *   Adicionado o parâmetro `clientId` para capturar explicitamente o UUID do autor quando o remetente é um cliente.
+    *   A lógica de autoria agora prioriza o `clientId` enviado pela interface, usando o `profileId` apenas como fallback para compatibilidade legada.
 
-2.  **IntegraÃ§Ã£o no `supportAdapter`**:
-    *   O adaptador agora extrai o `userId` do payload do `UnifiedChat` e o repassa como `clientId` para o serviÃ§o de mensagens. Isso garante que o campo `sender_user_id` no banco de dados reflita o autor real da mensagem no portal.
+2.  **Integração no `supportAdapter`**:
+    *   O adaptador agora extrai o `userId` do payload do `UnifiedChat` e o repassa como `clientId` para o serviço de mensagens. Isso garante que o campo `sender_user_id` no banco de dados reflita o autor real da mensagem no portal.
 
 ### Arquivos alterados
-*   `/services/supportChat.service.ts`: ModificaÃ§Ã£o na assinatura de `sendMessage` e lÃ³gica de autoria.
-*   `/components/chat/adapters/supportAdapter.ts`: Repasse do `userId` para o serviÃ§o.
+*   `/services/supportChat.service.ts`: Modificação na assinatura de `sendMessage` e lógica de autoria.
+*   `/components/chat/adapters/supportAdapter.ts`: Repasse do `userId` para o serviço.
 
 ---
 
-## AtualizaÃ§Ã£o - CorreÃ§Ã£o CrÃ­tica de Integridade de Banco (2026-04-19)
+## Atualização - Correção Crítica de Integridade de Banco (2026-04-19)
 
 ### Escopo executado
-ResoluÃ§Ã£o do erro `violates foreign key constraint "mensagens_suporte_profile_id_fkey"`. Este erro impedia o salvamento de mensagens quando o sistema tentava vincular uma mensagem a um ID que nÃ£o existia na tabela de perfis (normalmente tentando usar IDs de devedores em campos de profissionais).
+Resolução do erro `violates foreign key constraint "mensagens_suporte_profile_id_fkey"`. Este erro impedia o salvamento de mensagens quando o sistema tentava vincular uma mensagem a um ID que não existia na tabela de perfis (normalmente tentando usar IDs de devedores em campos de profissionais).
 
 1.  **Ajuste no `supportChatService`**:
     *   Atualizado `getActiveChats` para buscar o `profile_id` (ID do Profissional/Tenant) diretamente das mensagens existentes e dos contratos.
-    *   Atualizado `getAvailableContracts` para incluir o `profile_id` do contrato no retorno, permitindo que novas conversas sejam iniciadas com o vÃ­nculo correto de tenant.
-    *   Implementado fallback seguro para "Suporte Direto", garantindo que IDs de contrato nÃ£o sejam enviados para colunas de perfil.
+    *   Atualizado `getAvailableContracts` para incluir o `profile_id` do contrato no retorno, permitindo que novas conversas sejam iniciadas com o vínculo correto de tenant.
+    *   Implementado fallback seguro para "Suporte Direto", garantindo que IDs de contrato não sejam enviados para colunas de perfil.
 
 2.  **Refinamento do Contexto de Chat**:
     *   `OperatorSupportChat`: Ajustado para priorizar o ID do operador ou o ID do profissional vinculado ao contrato, evitando o uso de IDs de devedores no campo `profile_id`.
-    *   `PortalChatDrawer`: Atualizado para usar `loan.profile_id` (o ID do profissional que atende o contrato) em vez do ID do prÃ³prio cliente no campo que exige um perfil verificado.
+    *   `PortalChatDrawer`: Atualizado para usar `loan.profile_id` (o ID do profissional que atende o contrato) em vez do ID do próprio cliente no campo que exige um perfil verificado.
 
 ### Arquivos alterados
-*   `/services/supportChat.service.ts`: InclusÃ£o de `profile_id` nas buscas e mapeamento de contratos.
-*   `/features/support/OperatorSupportChat.tsx`: CorreÃ§Ã£o de mapeamento no contexto do `UnifiedChat`.
-*   `/features/portal/components/PortalChatDrawer.tsx`: CorreÃ§Ã£o de mapeamento no contexto do `UnifiedChat` (visÃ£o cliente).
+*   `/services/supportChat.service.ts`: Inclusão de `profile_id` nas buscas e mapeamento de contratos.
+*   `/features/support/OperatorSupportChat.tsx`: Correção de mapeamento no contexto do `UnifiedChat`.
+*   `/features/portal/components/PortalChatDrawer.tsx`: Correção de mapeamento no contexto do `UnifiedChat` (visão cliente).
 
 ---
 
-## AtualizaÃ§Ã£o - CorreÃ§Ã£o CrÃ­tica no Chat de Suporte (2026-04-19)
+## Atualização - Correção Crítica no Chat de Suporte (2026-04-19)
 
 ### Escopo executado
-ResoluÃ§Ã£o do erro "Dados invÃ¡lidos" que impedia o envio de mensagens em novas sessÃµes de suporte atravÃ©s do painel do operador.
+Resolução do erro "Dados inválidos" que impedia o envio de mensagens em novas sessões de suporte através do painel do operador.
 
-1.  **CorreÃ§Ã£o de Contexto no `OperatorSupportChat`**:
-    *   Identificada a ausÃªncia do `clientId` ao iniciar conversas a partir da lista de contatos disponÃ­veis.
-    *   O `supportAdapter` exige que tanto o `loanId` quanto o `profileId` (clientId) sejam UUIDs vÃ¡lidos para validar a sessÃ£o de chat.
+1.  **Correção de Contexto no `OperatorSupportChat`**:
+    *   Identificada a ausência do `clientId` ao iniciar conversas a partir da lista de contatos disponíveis.
+    *   O `supportAdapter` exige que tanto o `loanId` quanto o `profileId` (clientId) sejam UUIDs válidos para validar a sessão de chat.
     *   Ajustado o `handleSelectContact` para preservar o `clientId` no estado `selectedChat`, garantindo que o contexto enviado ao `UnifiedChat` esteja completo.
 
-2.  **EstabilizaÃ§Ã£o do NavHub**:
-    *   CorreÃ§Ã£o do erro de compilaÃ§Ã£o (Missing Import) do Ã­cone `PieChart` no menu de navegaÃ§Ã£o.
+2.  **Estabilização do NavHub**:
+    *   Correção do erro de compilação (Missing Import) do ícone `PieChart` no menu de navegação.
 
 ### Arquivos alterados
-*   `/features/support/OperatorSupportChat.tsx`: CorreÃ§Ã£o na inicializaÃ§Ã£o do objeto de chat selecionado.
-*   `/layout/NavHub.tsx`: AdiÃ§Ã£o do import `PieChart`.
+*   `/features/support/OperatorSupportChat.tsx`: Correção na inicialização do objeto de chat selecionado.
+*   `/layout/NavHub.tsx`: Adição do import `PieChart`.
 
 ---
 
-## AtualizaÃ§Ã£o - Refinamento do Motor LÃ³gico e Controle de VersÃ£o (2026-04-18)
+## Atualização - Refinamento do Motor Lógico e Controle de Versão (2026-04-18)
 
 ### Escopo executado
-Refinamento profundo das modalidades diÃ¡rias e implementaÃ§Ã£o de rastreabilidade de build para o usuÃ¡rio para verificaÃ§Ã£o de commits no Cloud.
+Refinamento profundo das modalidades diárias e implementação de rastreabilidade de build para o usuário para verificação de commits no Cloud.
 
-1.  **Refinamento do Motor LÃ³gico (Engine Financeira)**:
-    *   **RenovaÃ§Ã£o DAILY_30**: SubstituiÃ§Ã£o da lÃ³gica de blocos mensais pela `renewDaily30` especÃ­fica. O vencimento agora avanÃ§a proporcionalmente ao juro pago (dia a dia).
-    *   **DiferenciaÃ§Ã£o Interest/Capital**: SeparaÃ§Ã£o completa das estratÃ©gias `DAILY_30_INTEREST` e `DAILY_30_CAPITAL` no registro de modalidades.
-    *   **DAILY_FIXED_TERM**: AdiÃ§Ã£o de juros de mora diÃ¡rios automÃ¡ticos apÃ³s o vencimento do prazo fixo.
-    *   **GeraÃ§Ã£o de Contrato**: Ajuste no gerador de parcelas para provisionar corretamente o juro do primeiro ciclo (30 dias) em modalidades indexadas.
+1.  **Refinamento do Motor Lógico (Engine Financeira)**:
+    *   **Renovação DAILY_30**: Substituição da lógica de blocos mensais pela `renewDaily30` específica. O vencimento agora avança proporcionalmente ao juro pago (dia a dia).
+    *   **Diferenciação Interest/Capital**: Separação completa das estratégias `DAILY_30_INTEREST` e `DAILY_30_CAPITAL` no registro de modalidades.
+    *   **DAILY_FIXED_TERM**: Adição de juros de mora diários automáticos após o vencimento do prazo fixo.
+    *   **Geração de Contrato**: Ajuste no gerador de parcelas para provisionar corretamente o juro do primeiro ciclo (30 dias) em modalidades indexadas.
 
-2.  **Controle de VersÃµes e Deploy Cloud**:
-    *   **src/constants/version.ts**: CriaÃ§Ã£o do arquivo de metadados do sistema para rastreabilidade de commits.
-    *   **Loading Screen**: AdiÃ§Ã£o de indicador de REV (RevisÃ£o) e BUILD no footer da tela de splash inicial.
-    *   **Perfil do UsuÃ¡rio**: Nova aba "Sistema & VersÃ£o" contendo:
-        *   RevisÃ£o e ID de Build.
-        *   VersÃ£o especÃ­fica do Motor LÃ³gico.
-        *   Timestamp do Ãºltimo deploy realizado no Cloud.
-        *   OrientaÃ§Ãµes de SincronizaÃ§Ã£o (Hard Refresh).
+2.  **Controle de Versões e Deploy Cloud**:
+    *   **src/constants/version.ts**: Criação do arquivo de metadados do sistema para rastreabilidade de commits.
+    *   **Loading Screen**: Adição de indicador de REV (Revisão) e BUILD no footer da tela de splash inicial.
+    *   **Perfil do Usuário**: Nova aba "Sistema & Versão" contendo:
+        *   Revisão e ID de Build.
+        *   Versão específica do Motor Lógico.
+        *   Timestamp do último deploy realizado no Cloud.
+        *   Orientações de Sincronização (Hard Refresh).
 
 ### Arquivos alterados
-*   `/domain/finance/modalities/daily30/daily30.renewal.ts`: Nova estratÃ©gia de renovaÃ§Ã£o.
-*   `/domain/finance/modalities/daily30/daily30.calculations.ts`: Refinamentos de cÃ¡lculo.
-*   `/domain/finance/modalities/daily30/index.ts`: OrganizaÃ§Ã£o de mÃ³dulos.
-*   `/domain/finance/modalities/registry.ts`: AtualizaÃ§Ã£o do mapeamento oficial.
+*   `/domain/finance/modalities/daily30/daily30.renewal.ts`: Nova estratégia de renovação.
+*   `/domain/finance/modalities/daily30/daily30.calculations.ts`: Refinamentos de cálculo.
+*   `/domain/finance/modalities/daily30/index.ts`: Organização de módulos.
+*   `/domain/finance/modalities/registry.ts`: Atualização do mapeamento oficial.
 *   `/domain/finance/modalities/dailyFixedTerm/calculations.ts`: Nova regra de multa+mora.
-*   `/features/loans/modalities/daily/daily.calculations.ts`: CorreÃ§Ã£o na geraÃ§Ã£o de parcelas 30 dias.
-*   `/components/ui/LoadingScreen.tsx`: ExibiÃ§Ã£o da versÃ£o no carregamento.
-*   `/pages/ProfilePage.tsx`: Interface de informaÃ§Ãµes tÃ©cnicas.
+*   `/features/loans/modalities/daily/daily.calculations.ts`: Correção na geração de parcelas 30 dias.
+*   `/components/ui/LoadingScreen.tsx`: Exibição da versão no carregamento.
+*   `/pages/ProfilePage.tsx`: Interface de informações técnicas.
 *   `/src/constants/version.ts`: Novo arquivo de metadados.
 
 ---
@@ -429,44 +377,44 @@ Refinamento profundo das modalidades diÃ¡rias e implementaÃ§Ã£o de rastrea
 ## Atualizacao - Ajustes Financeiros, Perfil e Portal do Cliente (2026-04-17)
 
 ### Escopo executado
-Refinamento do motor de cÃ¡lculos de atraso, correÃ§Ã£o de acessibilidade em contexto global (Modais) e personalizaÃ§Ã£o de contatos de suporte.
+Refinamento do motor de cálculos de atraso, correção de acessibilidade em contexto global (Modais) e personalização de contatos de suporte.
 
-1.  **RevisÃ£o Financeira (Modalidade 30 dias)**:
-    -   Corrigido o cÃ¡lculo de multa e mora diÃ¡ria no arquivo `/domain/finance/modalities/daily30/daily30.calculations.ts`.
-    -   A base de cÃ¡lculo foi alterada de `Principal` para `Total da Parcela (Principal + Juros Acumulados)`, garantindo que contratos de "Apenas Juros" (Interest-Only) gerem encargos de atraso corretamente sobre o valor devido.
-2.  **CorreÃ§Ã£o de Arquitetura e Portal do Cliente**:
+1.  **Revisão Financeira (Modalidade 30 dias)**:
+    -   Corrigido o cálculo de multa e mora diária no arquivo `/domain/finance/modalities/daily30/daily30.calculations.ts`.
+    -   A base de cálculo foi alterada de `Principal` para `Total da Parcela (Principal + Juros Acumulados)`, garantindo que contratos de "Apenas Juros" (Interest-Only) gerem encargos de atraso corretamente sobre o valor devido.
+2.  **Correção de Arquitetura e Portal do Cliente**:
     -   O `ModalProvider` foi movido no `App.tsx` para envolver o `AppGate`.
-    -   **Resultado**: Resolvido o desaparecimento do botÃ£o de chat no Portal do Cliente. O componente `UnifiedChat` (dentro do Portal) agora possui acesso ao `ModalContext` necessÃ¡rio para exibir Toasts e Modais, evitando falhas silenciosas de renderizaÃ§Ã£o.
-3.  **GestÃ£o de Contatos de Suporte**:
+    -   **Resultado**: Resolvido o desaparecimento do botão de chat no Portal do Cliente. O componente `UnifiedChat` (dentro do Portal) agora possui acesso ao `ModalContext` necessário para exibir Toasts e Modais, evitando falhas silenciosas de renderização.
+3.  **Gestão de Contatos de Suporte**:
     -   Adicionado campo `contato_whatsapp` na interface `UserProfile` e mapeamento completo no banco de dados via `operatorProfileService.ts`.
-    -   **Perfil**: Nova interface no `ProfilePage.tsx` permitindo ao operador configurar o "WhatsApp de Suporte (Mensagens)", utilizado para comunicaÃ§Ãµes automÃ¡ticas e suporte ao cliente.
-    -   **SeguranÃ§a**: CentralizaÃ§Ã£o do suporte ao operador no `AuthScreen.tsx` (Login), mantendo o nÃºmero oficial para questÃµes tÃ©cnicas da plataforma e permitindo que o nÃºmero operacional seja dinÃ¢mico.
+    -   **Perfil**: Nova interface no `ProfilePage.tsx` permitindo ao operador configurar o "WhatsApp de Suporte (Mensagens)", utilizado para comunicações automáticas e suporte ao cliente.
+    -   **Segurança**: Centralização do suporte ao operador no `AuthScreen.tsx` (Login), mantendo o número oficial para questões técnicas da plataforma e permitindo que o número operacional seja dinâmico.
 
 ### Arquivos alterados
-- `/types.ts`: AdiÃ§Ã£o de `contato_whatsapp`.
-- `/domain/finance/modalities/daily30/daily30.calculations.ts`: Ajuste na base de cÃ¡lculo de encargos.
-- `/App.tsx`: ReestruturaÃ§Ã£o de providers globais.
-- `/features/profile/services/operatorProfileService.ts`: PersistÃªncia do novo campo de suporte.
-- `/pages/ProfilePage.tsx`: UI para ediÃ§Ã£o do nÃºmero de suporte.
+- `/types.ts`: Adição de `contato_whatsapp`.
+- `/domain/finance/modalities/daily30/daily30.calculations.ts`: Ajuste na base de cálculo de encargos.
+- `/App.tsx`: Reestruturação de providers globais.
+- `/features/profile/services/operatorProfileService.ts`: Persistência do novo campo de suporte.
+- `/pages/ProfilePage.tsx`: UI para edição do número de suporte.
 
 ---
 
-## Atualizacao - Refinamento do Chat e InternacionalizaÃ§Ã£o (2026-04-17)
+## Atualizacao - Refinamento do Chat e Internacionalização (2026-04-17)
 
 ### Escopo executado
-ProfissionalizaÃ§Ã£o do chat, remoÃ§Ã£o de diÃ¡logos nativos bloqueados (iframe) e melhoria da consistÃªncia visual/internacionalizaÃ§Ã£o.
+Profissionalização do chat, remoção de diálogos nativos bloqueados (iframe) e melhoria da consistência visual/internacionalização.
 
-1.  **InternacionalizaÃ§Ã£o**: 
+1.  **Internacionalização**: 
     -   Traduzido `LOAN_INITIAL` para "Contrato Inicial" em todo o sistema.
-    -   RevisÃ£o de placeholders e textos para garantir o uso exclusivo de PortuguÃªs.
-2.  **RemoÃ§Ã£o de Alertas e ConfirmaÃ§Ãµes Nativas**:
-    -   SubstituÃ­dos `confirm()` e `alert()` por diÃ¡logos integrados em `MessageHubModal`, `ChatMessages` e `OperatorSupportChat`.
+    -   Revisão de placeholders e textos para garantir o uso exclusivo de Português.
+2.  **Remoção de Alertas e Confirmações Nativas**:
+    -   Substituídos `confirm()` e `alert()` por diálogos integrados em `MessageHubModal`, `ChatMessages` e `OperatorSupportChat`.
     -   Isso garante compatibilidade com o ambiente de iFrame onde alertas nativos costumam ser bloqueados.
 3.  **Arquitetura de UI**:
-    -   RelocaÃ§Ã£o do `ModalProvider` no `App.tsx` para envolver o `AppShell`, permitindo que componentes internos (como o Chat) acessem modais de confirmaÃ§Ã£o e sistema de Toasts.
-    -   RemoÃ§Ã£o do container redundante `ModalHostContainer.tsx`.
-4.  **Melhoria no Sistema de ConfirmaÃ§Ã£o**:
-    -   Adicionado suporte a callbacks `onConfirm` no controlador de confirmaÃ§Ã£o do sistema, permitindo aÃ§Ãµes genÃ©ricas e seguras via UI.
+    -   Relocação do `ModalProvider` no `App.tsx` para envolver o `AppShell`, permitindo que componentes internos (como o Chat) acessem modais de confirmação e sistema de Toasts.
+    -   Remoção do container redundante `ModalHostContainer.tsx`.
+4.  **Melhoria no Sistema de Confirmação**:
+    -   Adicionado suporte a callbacks `onConfirm` no controlador de confirmação do sistema, permitindo ações genéricas e seguras via UI.
 
 ### Arquivos alterados
 - `/utils/translationHelpers.ts`
@@ -480,16 +428,16 @@ ProfissionalizaÃ§Ã£o do chat, remoÃ§Ã£o de diÃ¡logos nativos bloqueado
 
 ---
 
-## Atualizacao - EstabilizaÃ§Ã£o e CorreÃ§Ãµes de Perfil (2026-04-17)
+## Atualizacao - Estabilização e Correções de Perfil (2026-04-17)
 
 ### Escopo executado
-CorreÃ§Ãµes crÃ­ticas para o erro "Perfil nÃ£o encontrado" e estabilizaÃ§Ã£o de dados financeiros.
+Correções críticas para o erro "Perfil não encontrado" e estabilização de dados financeiros.
 
-1.  **SincronizaÃ§Ã£o de Perfil**: Fix no logout imediato. `useAuth` agora cria perfis usando o ID do Auth User. `useAppState` resolve perfis de forma resiliente por ID ou User_ID.
-2.  **Dashboard Preciso**: Filtro de clientes "TESTE" implementado para isolar mÃ©tricas reais de simulaÃ§Ãµes.
-3.  **Capital na Rua**: CÃ¡lculo ajustado para refletir o saldo devedor total (parcelado diluÃ­do).
-4.  **CPF Opcional**: FlexibilizaÃ§Ã£o no cadastro de clientes.
-5.  **RecÃ¡lculo Central**: BotÃ£o adicionado para sincronizaÃ§Ã£o manual do balanÃ§o do perfil.
+1.  **Sincronização de Perfil**: Fix no logout imediato. `useAuth` agora cria perfis usando o ID do Auth User. `useAppState` resolve perfis de forma resiliente por ID ou User_ID.
+2.  **Dashboard Preciso**: Filtro de clientes "TESTE" implementado para isolar métricas reais de simulações.
+3.  **Capital na Rua**: Cálculo ajustado para refletir o saldo devedor total (parcelado diluído).
+4.  **CPF Opcional**: Flexibilização no cadastro de clientes.
+5.  **Recálculo Central**: Botão adicionado para sincronização manual do balanço do perfil.
 
 ---
 
@@ -680,7 +628,7 @@ Achado:
 Impacto:
 
 - O sistema aparenta suportar mais modalidades do que realmente suporta.
-- Dados legados podem cair em estrategia diferente sem transparÃªncia.
+- Dados legados podem cair em estrategia diferente sem transparência.
 
 Conclusao:
 
@@ -1228,7 +1176,7 @@ Mudancas:
 2. A secao `06 Registros do Contrato` passou a operar com:
    - selecao apenas de registros elegiveis para exclusao
    - `Selecionar Varios`
-   - `Limpar SeleÃ§Ã£o` quando todos os elegiveis ja estiverem selecionados
+   - `Limpar Seleção` quando todos os elegiveis ja estiverem selecionados
    - `Excluir Selecionados`
    - `Excluir Todos`
 3. O carregamento dos registros agora limpa automaticamente selecoes invalidas apos refresh.
@@ -1429,7 +1377,7 @@ Mudancas:
    - diminuir/aumentar recuo de paragrafo
    - mostrar/ocultar marcador de paragrafo
 5. O ajuste de fonte, tamanho e espacamento passou a atuar sobre a selecao ou sobre os blocos do documento, em vez de ficar so como aparencia momentanea.
-6. A folha continua centralizada com reguas e margens editaveis, preservando a correÃ§Ã£o da etapa anterior.
+6. A folha continua centralizada com reguas e margens editaveis, preservando a correção da etapa anterior.
 
 Impacto:
 
@@ -1454,67 +1402,67 @@ Impacto:
 
 ---
 
-## AnÃ¡lise Detalhada dos Motores e PÃ¡ginas Principais (MarÃ§o 2026)
+## Análise Detalhada dos Motores e Páginas Principais (Março 2026)
 
-Esta anÃ¡lise foi realizada para mapear o funcionamento interno dos componentes crÃ­ticos do CapitalFlow, identificando a integraÃ§Ã£o entre UI, lÃ³gica de domÃ­nio e persistÃªncia.
+Esta análise foi realizada para mapear o funcionamento interno dos componentes críticos do CapitalFlow, identificando a integração entre UI, lógica de domínio e persistência.
 
-### 1. Motores de DomÃ­nio (Engines)
+### 1. Motores de Domínio (Engines)
 
-#### 1.1 Motor de EmprÃ©stimos (`domain/loanEngine.ts` & `domain/finance/calculations.ts`)
-*   **Responsabilidade**: CÃ¡lculo de saldos, amortizaÃ§Ãµes e projeÃ§Ãµes financeiras.
-*   **LÃ³gica de AmortizaÃ§Ã£o**: Segue a ordem prioritÃ¡ria `Multa/Mora -> Juros -> Principal`. Esta regra Ã© impositiva em todo o sistema.
-*   **ReconstruÃ§Ã£o de Estado**: O sistema utiliza o histÃ³rico de transaÃ§Ãµes (ledger) para reconstruir o estado atual do contrato, garantindo uma trilha de auditoria (audit trail) confiÃ¡vel.
-*   **IntegraÃ§Ã£o com Acordos**: Gerencia a complexidade de contratos em renegociaÃ§Ã£o, calculando proporÃ§Ãµes de saldo para manter a integridade das categorias contÃ¡beis.
+#### 1.1 Motor de Empréstimos (`domain/loanEngine.ts` & `domain/finance/calculations.ts`)
+*   **Responsabilidade**: Cálculo de saldos, amortizações e projeções financeiras.
+*   **Lógica de Amortização**: Segue a ordem prioritária `Multa/Mora -> Juros -> Principal`. Esta regra é impositiva em todo o sistema.
+*   **Reconstrução de Estado**: O sistema utiliza o histórico de transações (ledger) para reconstruir o estado atual do contrato, garantindo uma trilha de auditoria (audit trail) confiável.
+*   **Integração com Acordos**: Gerencia a complexidade de contratos em renegociação, calculando proporções de saldo para manter a integridade das categorias contábeis.
 
 #### 1.2 Motor Financeiro e de Pagamentos (`services/payments.service.ts`)
-*   **Responsabilidade**: Processamento transacional de recebimentos e amortizaÃ§Ãµes.
-*   **Atomicidade**: Utiliza RPCs do Supabase (`process_payment_v3_selective`) para garantir que mÃºltiplas tabelas sejam atualizadas de forma atÃ´mica.
-*   **IdempotÃªncia**: Implementa chaves UUID para evitar processamento duplicado de pagamentos.
-*   **Ponto de AtenÃ§Ã£o**: A resoluÃ§Ã£o da fonte de capital "Caixa Livre" via comparaÃ§Ã£o de strings de nome Ã© um ponto de fragilidade que deve ser substituÃ­do por IDs fixos ou flags.
+*   **Responsabilidade**: Processamento transacional de recebimentos e amortizações.
+*   **Atomicidade**: Utiliza RPCs do Supabase (`process_payment_v3_selective`) para garantir que múltiplas tabelas sejam atualizadas de forma atômica.
+*   **Idempotência**: Implementa chaves UUID para evitar processamento duplicado de pagamentos.
+*   **Ponto de Atenção**: A resolução da fonte de capital "Caixa Livre" via comparação de strings de nome é um ponto de fragilidade que deve ser substituído por IDs fixos ou flags.
 
 #### 1.3 Motor de Acordos (`features/agreements/services/agreementService.ts`)
-*   **Responsabilidade**: CriaÃ§Ã£o, quebra e gestÃ£o de renegociaÃ§Ãµes (acordos).
-*   **Fluxo de Quebra**: Reverte o contrato para o estado original e abate os valores pagos no acordo seguindo a ordem de amortizaÃ§Ã£o padrÃ£o.
-*   **Ponto de AtenÃ§Ã£o**: Atualmente utiliza mÃºltiplas chamadas sequenciais ao banco, o que representa risco de inconsistÃªncia. Deve ser migrado para RPCs atÃ´micos.
+*   **Responsabilidade**: Criação, quebra e gestão de renegociações (acordos).
+*   **Fluxo de Quebra**: Reverte o contrato para o estado original e abate os valores pagos no acordo seguindo a ordem de amortização padrão.
+*   **Ponto de Atenção**: Atualmente utiliza múltiplas chamadas sequenciais ao banco, o que representa risco de inconsistência. Deve ser migrado para RPCs atômicos.
 
-#### 1.4 MÃ³dulo JurÃ­dico (`features/legal/services/legalService.ts`)
-*   **Responsabilidade**: GeraÃ§Ã£o de documentos (ConfissÃ£o, PromissÃ³ria), gestÃ£o de assinaturas digitais e auditoria.
-*   **Acionamento JurÃ­dico**: Utiliza a regra `isLegallyActionable` do `loanEngine`, que filtra contratos com saldo em aberto e pelo menos uma parcela vencida.
+#### 1.4 Módulo Jurídico (`features/legal/services/legalService.ts`)
+*   **Responsabilidade**: Geração de documentos (Confissão, Promissória), gestão de assinaturas digitais e auditoria.
+*   **Acionamento Jurídico**: Utiliza a regra `isLegallyActionable` do `loanEngine`, que filtra contratos com saldo em aberto e pelo menos uma parcela vencida.
 *   **Fluxo de Documentos**:
-    *   **GeraÃ§Ã£o**: Utiliza templates prÃ©-definidos preenchidos com dados do contrato/cliente.
-    *   **EdiÃ§Ã£o**: `LegalDocumentEditorPage` usa TinyMCE para ajustes finos.
-    *   **Assinatura**: IntegraÃ§Ã£o com serviÃ§os de assinatura (links gerados no frontend).
-*   **SeguranÃ§a e Auditoria**: Implementa registro de IP, User Agent e Hash SHA-256 para cada assinatura, garantindo validade jurÃ­dica.
-*   **Ponto de AtenÃ§Ã£o**: A montagem dos documentos e cÃ¡lculos de saldo para confissÃ£o ocorrem no frontend, o que Ã© um risco de integridade.
-*   **Ponto de AtenÃ§Ã£o**: Uso frequente de `window.confirm` e `window.open` em componentes como `ConfissaoDividaView`.
-*   **Ponto de AtenÃ§Ã£o**: A geraÃ§Ã£o de documentos Ã© parcialmente atÃ´mica (RPC + Update manual do HTML). Se o segundo passo falhar, o documento fica sem conteÃºdo renderizado.
+    *   **Geração**: Utiliza templates pré-definidos preenchidos com dados do contrato/cliente.
+    *   **Edição**: `LegalDocumentEditorPage` usa TinyMCE para ajustes finos.
+    *   **Assinatura**: Integração com serviços de assinatura (links gerados no frontend).
+*   **Segurança e Auditoria**: Implementa registro de IP, User Agent e Hash SHA-256 para cada assinatura, garantindo validade jurídica.
+*   **Ponto de Atenção**: A montagem dos documentos e cálculos de saldo para confissão ocorrem no frontend, o que é um risco de integridade.
+*   **Ponto de Atenção**: Uso frequente de `window.confirm` e `window.open` em componentes como `ConfissaoDividaView`.
+*   **Ponto de Atenção**: A geração de documentos é parcialmente atômica (RPC + Update manual do HTML). Se o segundo passo falhar, o documento fica sem conteúdo renderizado.
 
-### 2. PÃ¡ginas e Fluxos de Interface
+### 2. Páginas e Fluxos de Interface
 
-#### 2.1 PÃ¡gina de Clientes (`pages/ClientsPage.tsx`)
-*   **Escopo**: GestÃ£o completa da base de clientes.
-*   **Motor**: Usa `useClientController` para operaÃ§Ãµes CRUD.
-*   **IntegraÃ§Ã£o**: Vincula o cliente aos seus diversos contratos, permitindo uma visÃ£o consolidada da dÃ­vida por CPF/CNPJ.
-*   **Privacidade**: Implementa mÃ¡scaras de dados (CPF/Telefone) para o "Stealth Mode", embora os dados completos residam no estado do frontend.
+#### 2.1 Página de Clientes (`pages/ClientsPage.tsx`)
+*   **Escopo**: Gestão completa da base de clientes.
+*   **Motor**: Usa `useClientController` para operações CRUD.
+*   **Integração**: Vincula o cliente aos seus diversos contratos, permitindo uma visão consolidada da dívida por CPF/CNPJ.
+*   **Privacidade**: Implementa máscaras de dados (CPF/Telefone) para o "Stealth Mode", embora os dados completos residam no estado do frontend.
 
-#### 2.2 PÃ¡gina de Pagamento e Detalhes (`pages/ContractDetailsPage.tsx`)
-*   **Escopo**: Interface principal de operaÃ§Ã£o financeira por contrato.
+#### 2.2 Página de Pagamento e Detalhes (`pages/ContractDetailsPage.tsx`)
+*   **Escopo**: Interface principal de operação financeira por contrato.
 *   **Motor de Pagamento**:
     *   Utiliza `payments.service.ts` para processar recebimentos via RPC no Supabase.
-    *   Suporta estornos e renegociaÃ§Ãµes.
-    *   Exibe o "Ledger" (livro razÃ£o) do contrato, garantindo transparÃªncia em cada transaÃ§Ã£o.
-*   **IntegraÃ§Ã£o**: Conecta a UI diretamente ao `loanEngine` para mostrar o impacto de pagamentos em tempo real (ex: "QuitaÃ§Ã£o Total", "RenovaÃ§Ã£o").
-*   **GestÃ£o de Encargos**: Permite o perdÃ£o seletivo de multas ou juros antes da confirmaÃ§Ã£o do recebimento.
-*   **Riscos**: MÃºltiplos pagamentos simultÃ¢neos podem gerar inconsistÃªncia se nÃ£o houver travas (locks) no banco de dados.
+    *   Suporta estornos e renegociações.
+    *   Exibe o "Ledger" (livro razão) do contrato, garantindo transparência em cada transação.
+*   **Integração**: Conecta a UI diretamente ao `loanEngine` para mostrar o impacto de pagamentos em tempo real (ex: "Quitação Total", "Renovação").
+*   **Gestão de Encargos**: Permite o perdão seletivo de multas ou juros antes da confirmação do recebimento.
+*   **Riscos**: Múltiplos pagamentos simultâneos podem gerar inconsistência se não houver travas (locks) no banco de dados.
 
-#### 2.3 PÃ¡gina JurÃ­dica (`pages/LegalPage.tsx` & `pages/LegalContractPage.tsx`)
-*   **Escopo**: Central de recuperaÃ§Ã£o de crÃ©dito e gestÃ£o documental.
-*   **Funcionalidades**: GeraÃ§Ã£o em lote de documentos, editor de minutas customizadas (TinyMCE) e acompanhamento de assinaturas.
-*   **UX**: Utiliza KPIs especÃ­ficos (Volume Negociado, Recuperado) para o setor jurÃ­dico.
-*   **Ponto CrÃ­tico**: Uso de `window.confirm` e `window.open` diretamente, o que foge dos padrÃµes modernos de SPA e seguranÃ§a de iframe.
+#### 2.3 Página Jurídica (`pages/LegalPage.tsx` & `pages/LegalContractPage.tsx`)
+*   **Escopo**: Central de recuperação de crédito e gestão documental.
+*   **Funcionalidades**: Geração em lote de documentos, editor de minutas customizadas (TinyMCE) e acompanhamento de assinaturas.
+*   **UX**: Utiliza KPIs específicos (Volume Negociado, Recuperado) para o setor jurídico.
+*   **Ponto Crítico**: Uso de `window.confirm` e `window.open` diretamente, o que foge dos padrões modernos de SPA e segurança de iframe.
 
-### 3. ConclusÃ£o da AnÃ¡lise
-O sistema possui uma base lÃ³gica sÃ³lida, mas sofre com a dispersÃ£o de regras entre frontend e backend em alguns mÃ³dulos (especialmente Acordos). A prioridade deve ser a **centralizaÃ§Ã£o da lÃ³gica crÃ­tica em RPCs** e a **remoÃ§Ã£o de dependÃªncias de strings** para identificaÃ§Ã£o de entidades contÃ¡beis.
+### 3. Conclusão da Análise
+O sistema possui uma base lógica sólida, mas sofre com a dispersão de regras entre frontend e backend em alguns módulos (especialmente Acordos). A prioridade deve ser a **centralização da lógica crítica em RPCs** e a **remoção de dependências de strings** para identificação de entidades contábeis.
 
 ---
 
@@ -1526,44 +1474,44 @@ Data: 2026-03-24
 
 Melhoria visual e de integridade nos documentos juridicos:
 
-1.  **Correcao do RodapÃ©**: O texto "PÃ¡gina 1 de 1. Hash de Integridade: DOCUMENTO_PENDENTE..." foi substituÃ­do por uma seÃ§Ã£o de "CERTIFICAÃ‡ÃƒO DIGITAL" mais profissional, exibindo o Hash SHA-256 completo (ou "AGUARDANDO_ASSINATURA") e numeraÃ§Ã£o de pÃ¡gina adequada.
-2.  **Refinamento dos Campos de AutenticaÃ§Ã£o**:
+1.  **Correcao do Rodapé**: O texto "Página 1 de 1. Hash de Integridade: DOCUMENTO_PENDENTE..." foi substituído por uma seção de "CERTIFICAÇÃO DIGITAL" mais profissional, exibindo o Hash SHA-256 completo (ou "AGUARDANDO_ASSINATURA") e numeração de página adequada.
+2.  **Refinamento dos Campos de Autenticação**:
     *   Os blocos de assinatura agora possuem um layout mais robusto e "limpo".
-    *   A estampa de assinatura digital (quadro verde) foi redesenhada para ser mais elegante, com borda lateral e fundo suave, garantindo que as informaÃ§Ãµes de validade (MP 2.200-2/2001, Data, IP e Hash) fiquem legÃ­veis e bem apresentadas.
+    *   A estampa de assinatura digital (quadro verde) foi redesenhada para ser mais elegante, com borda lateral e fundo suave, garantindo que as informações de validade (MP 2.200-2/2001, Data, IP e Hash) fiquem legíveis e bem apresentadas.
     *   Adicionado `min-height` e ajustes de posicionamento para evitar que assinaturas sobreponham o texto do documento ou quebrem o layout de forma desordenada.
-    *   InclusÃ£o de placeholders `[PREENCHER]` ou linhas de assinatura claras para campos nÃ£o preenchidos.
-3.  **PadronizaÃ§Ã£o entre Templates**: As melhorias foram aplicadas de forma consistente em `DocumentTemplates.ts`, `ConfissaoDividaTemplate.ts` e `ConfissaoDividaV2Template.ts`.
+    *   Inclusão de placeholders `[PREENCHER]` ou linhas de assinatura claras para campos não preenchidos.
+3.  **Padronização entre Templates**: As melhorias foram aplicadas de forma consistente em `DocumentTemplates.ts`, `ConfissaoDividaTemplate.ts` e `ConfissaoDividaV2Template.ts`.
 
 ### Arquivos alterados nesta implementacao
 
-- `features/legal/templates/DocumentTemplates.ts`: AtualizaÃ§Ã£o do rodapÃ© e blocos de assinatura do template base.
-- `features/legal/templates/ConfissaoDividaTemplate.ts`: RefatoraÃ§Ã£o da funÃ§Ã£o `renderSignatureBlock` e rodapÃ©.
-- `features/legal/templates/ConfissaoDividaV2Template.ts`: RefatoraÃ§Ã£o da funÃ§Ã£o `renderSignatureBlock` e adiÃ§Ã£o de rodapÃ© de conformidade.
+- `features/legal/templates/DocumentTemplates.ts`: Atualização do rodapé e blocos de assinatura do template base.
+- `features/legal/templates/ConfissaoDividaTemplate.ts`: Refatoração da função `renderSignatureBlock` e rodapé.
+- `features/legal/templates/ConfissaoDividaV2Template.ts`: Refatoração da função `renderSignatureBlock` e adição de rodapé de conformidade.
 
-### ðŸ“‹ Fila do que falta (PrÃ³ximos Passos)
+### 📋 Fila do que falta (Próximos Passos)
 
-Conforme solicitado, segue a lista priorizada de pendÃªncias tÃ©cnicas e funcionais identificadas:
+Conforme solicitado, segue a lista priorizada de pendências técnicas e funcionais identificadas:
 
-1.  **SeguranÃ§a de Dados SensÃ­veis**:
+1.  **Segurança de Dados Sensíveis**:
     *   Remover `password` e `recoveryPhrase` do objeto `UserProfile` no frontend.
-    *   Garantir que o `localStorage` nÃ£o armazene credenciais em texto claro.
+    *   Garantir que o `localStorage` não armazene credenciais em texto claro.
 2.  **Integridade Financeira (Backend)**:
-    *   Migrar os cÃ¡lculos de saldo devedor (hoje em `calculations.ts` no frontend) para RPCs no Supabase para garantir uma "fonte Ãºnica da verdade" irrefutÃ¡vel.
-    *   Implementar RPCs atÃ´micas para a criaÃ§Ã£o de contratos e geraÃ§Ã£o de documentos (evitando estados parciais).
-3.  **ExperiÃªncia do UsuÃ¡rio (UX)**:
+    *   Migrar os cálculos de saldo devedor (hoje em `calculations.ts` no frontend) para RPCs no Supabase para garantir uma "fonte única da verdade" irrefutável.
+    *   Implementar RPCs atômicas para a criação de contratos e geração de documentos (evitando estados parciais).
+3.  **Experiência do Usuário (UX)**:
     *   Substituir todos os `window.confirm` e `window.alert` por componentes de Modal customizados do sistema.
-    *   Substituir `window.open` por um fluxo de visualizaÃ§Ã£o interno ou modal de PDF.
-4.  **ReforÃ§o de ValidaÃ§Ã£o**:
-    *   Implementar validaÃ§Ãµes rigorosas no backend para criaÃ§Ã£o de perfis e novos emprÃ©stimos (evitando injeÃ§Ã£o de dados inconsistentes via API).
+    *   Substituir `window.open` por um fluxo de visualização interno ou modal de PDF.
+4.  **Reforço de Validação**:
+    *   Implementar validações rigorosas no backend para criação de perfis e novos empréstimos (evitando injeção de dados inconsistentes via API).
 5.  **Saneamento de Banco de Dados**:
     *   Limpar RPCs legadas e duplicadas no schema remoto.
-    *   Padronizar nomenclaturas (InglÃªs vs PortuguÃªs) e remover colunas redundantes.
+    *   Padronizar nomenclaturas (Inglês vs Português) e remover colunas redundantes.
 
 ### Confirmacao de escopo
 
-1.  As alteraÃ§Ãµes foram estritamente visuais e de apresentaÃ§Ã£o nos templates de documentos.
-2.  NÃ£o houve alteraÃ§Ã£o na lÃ³gica de negÃ³cio ou persistÃªncia de dados.
-3.  O sistema permanece operacional e as mudanÃ§as visam apenas a qualidade da entrega jurÃ­dica.
+1.  As alterações foram estritamente visuais e de apresentação nos templates de documentos.
+2.  Não houve alteração na lógica de negócio ou persistência de dados.
+3.  O sistema permanece operacional e as mudanças visam apenas a qualidade da entrega jurídica.
 
 ---
 ## 2026-03-28 - Correcao efetiva do modal de resgate do Caixa Livre
@@ -1867,7 +1815,7 @@ Corrigir textos do header que apareceram com encoding quebrado na interface.
 ### Arquivos alterados
 
 1. `layout/HeaderBar.tsx`
-   - Corrigidos os labels `CaptaÃ§Ã£o`, `JurÃ­dico` e `OlÃ¡` que estavam aparecendo com caracteres corrompidos.
+   - Corrigidos os labels `Captação`, `Jurídico` e `Olá` que estavam aparecendo com caracteres corrompidos.
 
 2. `IMPLEMENTACAO_RESUMO.md`
    - Registro desta correcao.
@@ -1878,8 +1826,8 @@ Nenhum nesta etapa.
 
 ### Motivo tecnico
 
-- O arquivo do cabeÃ§alho carregava algumas strings com encoding quebrado.
-- Isso afetava diretamente os rÃ³tulos visÃ­veis dos botÃµes e a saudaÃ§Ã£o do usuÃ¡rio.
+- O arquivo do cabeçalho carregava algumas strings com encoding quebrado.
+- Isso afetava diretamente os rótulos visíveis dos botões e a saudação do usuário.
 
 ### Validacao executada
 
@@ -1889,124 +1837,124 @@ Nenhum nesta etapa.
 ### Confirmacao de escopo
 
 Somente os textos quebrados do `HeaderBar` foram alterados nesta etapa.
-Nenhuma estrutura de navegaÃ§Ã£o ou regra funcional foi modificada.
+Nenhuma estrutura de navegação ou regra funcional foi modificada.
 
 ---
-## 2026-04-04 - CorreÃ§Ã£o de UI no Header do LoanCard (Mobile)
+## 2026-04-04 - Correção de UI no Header do LoanCard (Mobile)
 
 ### Objetivo
 
-Corrigir o corte dos nomes dos devedores em contratos na versÃ£o mobile, garantindo que o nome completo seja visÃ­vel e a tag de status seja posicionada no canto superior direito do card.
+Corrigir o corte dos nomes dos devedores em contratos na versão mobile, garantindo que o nome completo seja visível e a tag de status seja posicionada no canto superior direito do card.
 
 ### Arquivos alterados
 
 1. `/components/cards/LoanCardComposition/Header.tsx`
    - Adicionado `relative` ao container principal para permitir posicionamento absoluto.
    - Removida a classe `truncate` do `h3` do nome do devedor para permitir quebra de linha (apoiado pela utility `client-name` que possui `white-space: normal`).
-   - Adicionado `pr-20` ao container do nome em telas pequenas (`sm:pr-0`) para reservar espaÃ§o para o badge absoluto e evitar sobreposiÃ§Ã£o.
+   - Adicionado `pr-20` ao container do nome em telas pequenas (`sm:pr-0`) para reservar espaço para o badge absoluto e evitar sobreposição.
    - Movido o `Badge` para um container com posicionamento absoluto (`absolute top-0 right-0`).
 
 ### Arquivos criados
 
 Nenhum nesta etapa.
 
-### Motivo tÃ©cnico
+### Motivo técnico
 
-- A classe `truncate` forÃ§ava `white-space: nowrap`, cortando nomes longos mesmo com espaÃ§o disponÃ­vel.
-- O posicionamento flex anterior fazia com que o badge competisse por espaÃ§o horizontal com o nome, agravando o corte em telas estreitas.
+- A classe `truncate` forçava `white-space: nowrap`, cortando nomes longos mesmo com espaço disponível.
+- O posicionamento flex anterior fazia com que o badge competisse por espaço horizontal com o nome, agravando o corte em telas estreitas.
 - O posicionamento absoluto do badge no "canto superior direito" (conforme solicitado) libera o fluxo horizontal para o nome do devedor.
 
-### ValidaÃ§Ã£o executada
+### Validação executada
 
 1. `npx tsc -b --pretty false`
    - resultado: OK
 
-### ConfirmaÃ§Ã£o de escopo
+### Confirmação de escopo
 
-Somente o layout do cabeÃ§alho do `LoanCard` foi alterado para resolver o problema de UI reportado. Nenhuma regra de negÃ³cio ou fluxo de dados foi modificado.
+Somente o layout do cabeçalho do `LoanCard` foi alterado para resolver o problema de UI reportado. Nenhuma regra de negócio ou fluxo de dados foi modificado.
 
 ---
 
-## 2026-04-04 - Melhoria no Sistema de NotificaÃ§Ãµes (Toasts)
+## 2026-04-04 - Melhoria no Sistema de Notificações (Toasts)
 
 ### Objetivo
 
-Melhorar a exibiÃ§Ã£o das notificaÃ§Ãµes em pilha (toasts), reduzindo seu tamanho, destaque excessivo e ocupaÃ§Ã£o de espaÃ§o, especialmente na versÃ£o mobile, garantindo uma experiÃªncia menos intrusiva.
+Melhorar a exibição das notificações em pilha (toasts), reduzindo seu tamanho, destaque excessivo e ocupação de espaço, especialmente na versão mobile, garantindo uma experiência menos intrusiva.
 
 ### Arquivos alterados
 
 1. `/hooks/useToast.ts`
-   - MigraÃ§Ã£o completa para a biblioteca `sonner`.
-   - RemoÃ§Ã£o do estado local `toast` e do `useEffect` de timeout manual.
-   - A funÃ§Ã£o `showToast` agora dispara notificaÃ§Ãµes via `sonnerToast`, mantendo a compatibilidade com os tipos existentes (`success`, `error`, `info`, `warning`).
-   - PreservaÃ§Ã£o da lÃ³gica de bipe sonoro para erros e avisos.
+   - Migração completa para a biblioteca `sonner`.
+   - Remoção do estado local `toast` e do `useEffect` de timeout manual.
+   - A função `showToast` agora dispara notificações via `sonnerToast`, mantendo a compatibilidade com os tipos existentes (`success`, `error`, `info`, `warning`).
+   - Preservação da lógica de bipe sonoro para erros e avisos.
 
 2. `/App.tsx`
-   - ConfiguraÃ§Ã£o do componente `Toaster` com:
+   - Configuração do componente `Toaster` com:
      - `expand={false}` e `visibleToasts={3}` para empilhamento inteligente.
      - `position="top-right"` no desktop.
-     - `mobileOffset={{ bottom: '80px' }}` para evitar sobreposiÃ§Ã£o com elementos do topo no mobile.
-     - EstilizaÃ§Ã£o customizada via `toastOptions` para um design mais compacto, com fundo semi-transparente, desfoque (blur) e bordas sutis.
+     - `mobileOffset={{ bottom: '80px' }}` para evitar sobreposição com elementos do topo no mobile.
+     - Estilização customizada via `toastOptions` para um design mais compacto, com fundo semi-transparente, desfoque (blur) e bordas sutis.
 
 3. `/layout/AppShell.tsx`
-   - RemoÃ§Ã£o da renderizaÃ§Ã£o manual de toasts via `framer-motion` e `AnimatePresence`.
-   - Limpeza de cÃ³digo redundante que ocupava espaÃ§o no topo da tela.
+   - Remoção da renderização manual de toasts via `framer-motion` e `AnimatePresence`.
+   - Limpeza de código redundante que ocupava espaço no topo da tela.
 
 4. `/features/auth/AuthScreen.tsx`
-   - RemoÃ§Ã£o da renderizaÃ§Ã£o manual de toasts na tela de login/autenticaÃ§Ã£o.
-   - UnificaÃ§Ã£o do comportamento de notificaÃ§Ãµes em toda a aplicaÃ§Ã£o.
+   - Remoção da renderização manual de toasts na tela de login/autenticação.
+   - Unificação do comportamento de notificações em toda a aplicação.
 
-### Motivo tÃ©cnico
+### Motivo técnico
 
-- A renderizaÃ§Ã£o manual anterior ocupava muito espaÃ§o e nÃ£o possuÃ­a um sistema de empilhamento eficiente.
-- O uso de `sonner` permite um controle refinado sobre a pilha de notificaÃ§Ãµes, reduzindo a obstruÃ§Ã£o visual.
-- O posicionamento no mobile foi ajustado para a parte inferior para evitar conflitos com o cabeÃ§alho e elementos de navegaÃ§Ã£o superiores.
+- A renderização manual anterior ocupava muito espaço e não possuía um sistema de empilhamento eficiente.
+- O uso de `sonner` permite um controle refinado sobre a pilha de notificações, reduzindo a obstrução visual.
+- O posicionamento no mobile foi ajustado para a parte inferior para evitar conflitos com o cabeçalho e elementos de navegação superiores.
 
-### ValidaÃ§Ã£o executada
+### Validação executada
 
 1. `npx tsc -b --pretty false`
    - resultado: OK
 
-### ConfirmaÃ§Ã£o de escopo
+### Confirmação de escopo
 
-- NÃ£o foram alteradas rotas.
-- NÃ£o foram criados arquivos novos.
-- NÃ£o houve alteraÃ§Ã£o na lÃ³gica de negÃ³cio ou persistÃªncia.
-- A funcionalidade de notificaÃ§Ãµes foi preservada, apenas a forma de exibiÃ§Ã£o foi otimizada e unificada.
+- Não foram alteradas rotas.
+- Não foram criados arquivos novos.
+- Não houve alteração na lógica de negócio ou persistência.
+- A funcionalidade de notificações foi preservada, apenas a forma de exibição foi otimizada e unificada.
 
 ---
 
-## 2026-04-04 - ReduÃ§Ã£o de Tamanho dos Alertas do Dashboard
+## 2026-04-04 - Redução de Tamanho dos Alertas do Dashboard
 
 ### Objetivo
 
-Reduzir o tamanho dos banners de alerta no Dashboard ("AtenÃ§Ã£o NecessÃ¡ria" e "Saldo Baixo"), tornando-os menos intrusivos e mais integrados ao layout, atendendo ao feedback de que as notificaÃ§Ãµes estavam muito grandes.
+Reduzir o tamanho dos banners de alerta no Dashboard ("Atenção Necessária" e "Saldo Baixo"), tornando-os menos intrusivos e mais integrados ao layout, atendendo ao feedback de que as notificações estavam muito grandes.
 
 ### Arquivos alterados
 
 1. `/features/dashboard/DashboardAlerts.tsx`
-   - ReduÃ§Ã£o da altura do container de `h-20` para `h-14`.
-   - ReduÃ§Ã£o do padding interno de `p-4` para `p-2.5`.
-   - ReduÃ§Ã£o do gap entre Ã­cone e texto de `gap-4` para `gap-3`.
-   - ReduÃ§Ã£o do arredondamento de `rounded-2xl` para `rounded-xl`.
-   - ReduÃ§Ã£o do tamanho do Ã­cone de `24` para `18` e seu padding de `p-3` para `p-2`.
-   - Ajuste das fontes para tamanhos menores e limitaÃ§Ã£o da mensagem a apenas 1 linha (`line-clamp-1`).
-   - SimplificaÃ§Ã£o visual com a remoÃ§Ã£o de uma camada decorativa redundante.
+   - Redução da altura do container de `h-20` para `h-14`.
+   - Redução do padding interno de `p-4` para `p-2.5`.
+   - Redução do gap entre ícone e texto de `gap-4` para `gap-3`.
+   - Redução do arredondamento de `rounded-2xl` para `rounded-xl`.
+   - Redução do tamanho do ícone de `24` para `18` e seu padding de `p-3` para `p-2`.
+   - Ajuste das fontes para tamanhos menores e limitação da mensagem a apenas 1 linha (`line-clamp-1`).
+   - Simplificação visual com a remoção de uma camada decorativa redundante.
 
-### Motivo tÃ©cnico
+### Motivo técnico
 
-- Os banners de alerta originais ocupavam muito espaÃ§o vertical, empurrando o conteÃºdo principal para baixo.
-- A nova escala mantÃ©m a visibilidade e o contraste (cores vibrantes), mas com uma pegada fÃ­sica muito menor, melhorando a harmonia visual do Dashboard.
+- Os banners de alerta originais ocupavam muito espaço vertical, empurrando o conteúdo principal para baixo.
+- A nova escala mantém a visibilidade e o contraste (cores vibrantes), mas com uma pegada física muito menor, melhorando a harmonia visual do Dashboard.
 
-### ValidaÃ§Ã£o executada
+### Validação executada
 
 1. `npx tsc -b --pretty false`
    - resultado: OK
 
-### ConfirmaÃ§Ã£o de escopo
+### Confirmação de escopo
 
-- AlteraÃ§Ã£o puramente estÃ©tica e de layout no componente de alertas do Dashboard.
-- Nenhuma alteraÃ§Ã£o em regras de negÃ³cio ou lÃ³gica de disparo de alertas.
+- Alteração puramente estética e de layout no componente de alertas do Dashboard.
+- Nenhuma alteração em regras de negócio ou lógica de disparo de alertas.
 
 ---
 
@@ -2014,30 +1962,30 @@ Reduzir o tamanho dos banners de alerta no Dashboard ("AtenÃ§Ã£o NecessÃ¡r
 
 ### Objetivo
 
-Reduzir drasticamente a ocupaÃ§Ã£o de espaÃ§o dos alertas do Dashboard, transformando-os de banners de largura total em mini-cards compactos e elegantes, atendendo ao feedback de que ainda estavam grandes.
+Reduzir drasticamente a ocupação de espaço dos alertas do Dashboard, transformando-os de banners de largura total em mini-cards compactos e elegantes, atendendo ao feedback de que ainda estavam grandes.
 
 ### Arquivos alterados
 
 1. `/features/dashboard/DashboardAlerts.tsx`
-   - **Largura Inteligente:** O alerta deixou de ser `w-full` (largura total) para ser `w-fit` (ajustado ao conteÃºdo), centralizado no mobile e alinhado Ã  esquerda no desktop.
-   - **Altura MÃ­nima:** Reduzida para `h-10` (40px).
-   - **Layout em Linha Ãšnica:** TÃ­tulo e mensagem agora compartilham a mesma linha, separados por um divisor sutil.
-   - **EstÃ©tica Refinada:** Uso de `backdrop-blur-md` e fundos semi-transparentes para um visual mais moderno e menos "pesado".
-   - **Micro-interaÃ§Ãµes:** Ãcones e botÃµes de fechar reduzidos para escalas mÃ­nimas (`14px` e `12px`).
+   - **Largura Inteligente:** O alerta deixou de ser `w-full` (largura total) para ser `w-fit` (ajustado ao conteúdo), centralizado no mobile e alinhado à esquerda no desktop.
+   - **Altura Mínima:** Reduzida para `h-10` (40px).
+   - **Layout em Linha Única:** Título e mensagem agora compartilham a mesma linha, separados por um divisor sutil.
+   - **Estética Refinada:** Uso de `backdrop-blur-md` e fundos semi-transparentes para um visual mais moderno e menos "pesado".
+   - **Micro-interações:** Ícones e botões de fechar reduzidos para escalas mínimas (`14px` e `12px`).
 
-### Motivo tÃ©cnico
+### Motivo técnico
 
 - O design anterior de "banner" criava uma barreira visual muito forte.
-- O novo formato de "pÃ­lula" ou "mini-card" comunica a urgÃªncia sem dominar a interface, permitindo que o usuÃ¡rio veja mais conteÃºdo do Dashboard simultaneamente.
+- O novo formato de "pílula" ou "mini-card" comunica a urgência sem dominar a interface, permitindo que o usuário veja mais conteúdo do Dashboard simultaneamente.
 
-### ValidaÃ§Ã£o executada
+### Validação executada
 
 1. `npx tsc -b --pretty false`
    - resultado: OK
 
-### ConfirmaÃ§Ã£o de escopo
+### Confirmação de escopo
 
-- RefatoraÃ§Ã£o visual do componente de alertas.
+- Refatoração visual do componente de alertas.
 - Mantida a funcionalidade de "drag to dismiss" e o timer de 24h.
 
 ---
@@ -2046,185 +1994,184 @@ Reduzir drasticamente a ocupaÃ§Ã£o de espaÃ§o dos alertas do Dashboard, tr
 
 ### Objetivo
 
-Ajustar o arredondamento de elementos da interface mobile (abas de navegaÃ§Ã£o do Dashboard e barra de filtros) para serem menos "circulares" e mais condizentes com o padrÃ£o visual do sistema, conforme solicitado pelo usuÃ¡rio.
+Ajustar o arredondamento de elementos da interface mobile (abas de navegação do Dashboard e barra de filtros) para serem menos "circulares" e mais condizentes com o padrão visual do sistema, conforme solicitado pelo usuário.
 
 ### Arquivos alterados
 
 1. `/pages/DashboardPage.tsx`
    - Alterado `rounded-2xl` para `rounded-xl` no container de abas mobile.
-   - Alterado `rounded-xl` para `rounded-lg` nos botÃµes internos.
+   - Alterado `rounded-xl` para `rounded-lg` nos botões internos.
 2. `/components/dashboard/DashboardControls.tsx`
    - Alterado `rounded-2xl` para `rounded-xl` no container da barra de filtros.
-   - Alterado `rounded-xl` para `rounded-lg` nos botÃµes de filtro.
+   - Alterado `rounded-xl` para `rounded-lg` nos botões de filtro.
 
-### Motivo tÃ©cnico
+### Motivo técnico
 
-- O arredondamento `2xl` em elementos pequenos ou estreitos criava um aspecto de "pÃ­lula" (totalmente circular nas pontas) que destoava de outros componentes do sistema que utilizam um arredondamento mais moderado.
+- O arredondamento `2xl` em elementos pequenos ou estreitos criava um aspecto de "pílula" (totalmente circular nas pontas) que destoava de outros componentes do sistema que utilizam um arredondamento mais moderado.
 
-### ValidaÃ§Ã£o executada
+### Validação executada
 
 1. `npm run lint`
    - resultado: OK
 
 ---
 
-## AtualizaÃ§Ã£o de ImplementaÃ§Ã£o
+## Atualização de Implementação
 
 Data: 2026-04-04
 
 ### Escopo executado
 
-Refinamento da UI do Dashboard e lÃ³gica de "Caixa Livre" (Free Cash):
+Refinamento da UI do Dashboard e lógica de "Caixa Livre" (Free Cash):
 
-1.  **UnificaÃ§Ã£o da LÃ³gica de DetecÃ§Ã£o de "Caixa Livre"**:
-    *   PadronizaÃ§Ã£o da detecÃ§Ã£o de fontes de lucro/caixa livre em `domain/dashboard/stats.ts` e `hooks/controllers/useSourceController.ts`.
-    *   Soma dos saldos de todas as fontes identificadas como "Caixa Livre" (ou termos equivalentes: lucro, disponÃ­vel, balance).
-    *   InclusÃ£o do `interestBalance` do perfil do usuÃ¡rio como fallback/complemento ao saldo das fontes.
+1.  **Unificação da Lógica de Detecção de "Caixa Livre"**:
+    *   Padronização da detecção de fontes de lucro/caixa livre em `domain/dashboard/stats.ts` e `hooks/controllers/useSourceController.ts`.
+    *   Soma dos saldos de todas as fontes identificadas como "Caixa Livre" (ou termos equivalentes: lucro, disponível, balance).
+    *   Inclusão do `interestBalance` do perfil do usuário como fallback/complemento ao saldo das fontes.
 
-2.  **PrecisÃ£o no Resgate de Lucros**:
-    *   AtualizaÃ§Ã£o do `handleWithdrawProfit` em `useSourceController.ts` para priorizar o saque da fonte "Caixa Livre" se houver saldo suficiente.
-    *   Fallback automÃ¡tico para o saldo do perfil (`interestBalance`) caso a fonte nÃ£o tenha saldo suficiente ou nÃ£o exista.
-    *   ExibiÃ§Ã£o do saldo combinado (Fontes + Perfil) no modal de resgate em `ModalGroups.tsx`.
+2.  **Precisão no Resgate de Lucros**:
+    *   Atualização do `handleWithdrawProfit` em `useSourceController.ts` para priorizar o saque da fonte "Caixa Livre" se houver saldo suficiente.
+    *   Fallback automático para o saldo do perfil (`interestBalance`) caso a fonte não tenha saldo suficiente ou não exista.
+    *   Exibição do saldo combinado (Fontes + Perfil) no modal de resgate em `ModalGroups.tsx`.
 
-3.  **Refinamento EstÃ©tico do Modal de Resgate**:
-    *   ModernizaÃ§Ã£o da interface do modal "Resgatar Lucros" em `ModalGroups.tsx`.
-    *   SubstituiÃ§Ã£o de arredondamentos totais (`rounded-full`) por curvas mais suaves (`rounded-2xl` e `rounded-3xl`).
-    *   AdiÃ§Ã£o de gradientes, sombras coloridas e micro-interaÃ§Ãµes nos botÃµes.
+3.  **Refinamento Estético do Modal de Resgate**:
+    *   Modernização da interface do modal "Resgatar Lucros" em `ModalGroups.tsx`.
+    *   Substituição de arredondamentos totais (`rounded-full`) por curvas mais suaves (`rounded-2xl` e `rounded-3xl`).
+    *   Adição de gradientes, sombras coloridas e micro-interações nos botões.
     *   Melhoria na tipografia e labels dos campos de entrada.
 
 4.  **Refinamento de Alertas do Dashboard**:
-    *   ReduÃ§Ã£o da intrusividade e tamanho dos banners de alerta em `features/dashboard/DashboardAlerts.tsx`.
-    *   Ajuste de altura (`h-10` para `h-8`), reduÃ§Ã£o de padding e escala de animaÃ§Ã£o para uma presenÃ§a mais discreta na interface.
-    *   Melhoria na consistÃªncia visual dos alertas com o restante do dashboard.
+    *   Redução da intrusividade e tamanho dos banners de alerta em `features/dashboard/DashboardAlerts.tsx`.
+    *   Ajuste de altura (`h-10` para `h-8`), redução de padding e escala de animação para uma presença mais discreta na interface.
+    *   Melhoria na consistência visual dos alertas com o restante do dashboard.
 
-### Arquivos alterados nesta implementaÃ§Ã£o
+### Arquivos alterados nesta implementação
 
 #### `/domain/dashboard/stats.ts`
-*   UnificaÃ§Ã£o da lÃ³gica de detecÃ§Ã£o de fontes de lucro.
+*   Unificação da lógica de detecção de fontes de lucro.
 *   Soma de saldos de fontes e perfil para o `interestBalance` exibido no dashboard.
 
 #### `/hooks/controllers/useSourceController.ts`
-*   RefatoraÃ§Ã£o do `handleWithdrawProfit` para suportar saque combinado (Fonte + Perfil).
-*   PriorizaÃ§Ã£o de saque via RPC `withdraw_profit_caixa_livre` quando hÃ¡ saldo na fonte.
+*   Refatoração do `handleWithdrawProfit` para suportar saque combinado (Fonte + Perfil).
+*   Priorização de saque via RPC `withdraw_profit_caixa_livre` quando há saldo na fonte.
 
 #### `/components/modals/ModalGroups.tsx`
-*   AtualizaÃ§Ã£o da exibiÃ§Ã£o do saldo disponÃ­vel para resgate, somando fontes e perfil.
+*   Atualização da exibição do saldo disponível para resgate, somando fontes e perfil.
 
 #### `/features/dashboard/DashboardAlerts.tsx`
-*   ReduÃ§Ã£o de tamanho e intrusividade dos alertas.
-*   Ajustes finos de animaÃ§Ã£o e layout para maior polimento.
+*   Redução de tamanho e intrusividade dos alertas.
+*   Ajustes finos de animação e layout para maior polimento.
 
-### ValidaÃ§Ã£o executada
-*   VerificaÃ§Ã£o visual da consistÃªncia de saldos entre o card "Caixa Livre" e o modal de resgate.
-*   Teste de lÃ³gica de saque priorizando fontes de capital.
-*   Ajuste fino de responsividade e estÃ©tica dos alertas.
+### Validação executada
+*   Verificação visual da consistência de saldos entre o card "Caixa Livre" e o modal de resgate.
+*   Teste de lógica de saque priorizando fontes de capital.
+*   Ajuste fino de responsividade e estética dos alertas.
 
-### ConfirmaÃ§Ã£o de escopo
-*   NÃ£o foram alteradas rotas ou layout global.
-*   As mudanÃ§as focaram estritamente no dashboard e na precisÃ£o financeira do "Caixa Livre".
+### Confirmação de escopo
+*   Não foram alteradas rotas ou layout global.
+*   As mudanças focaram estritamente no dashboard e na precisão financeira do "Caixa Livre".
 
 ---
 
-## AtualizaÃ§Ã£o de ImplementaÃ§Ã£o
+## Atualização de Implementação
 
 Data: 2026-04-15
 
 ### Escopo executado
 
-OcultaÃ§Ã£o das funcionalidades de **CaptaÃ§Ã£o** e **Equipe** para simplificaÃ§Ã£o da interface, mantendo o cÃ³digo preservado para futura reativaÃ§Ã£o.
+Ocultação das funcionalidades de **Captação** e **Equipe** para simplificação da interface, mantendo o código preservado para futura reativação.
 
-### Arquivos alterados nesta implementaÃ§Ã£o
+### Arquivos alterados nesta implementação
 
 #### `layout/NavHub.tsx`
 - Filtragem da lista `displayOrder` para remover as abas `TEAM` e `ACQUISITION`.
 
 #### `layout/BottomNav.tsx`
-- RemoÃ§Ã£o de `ACQUISITION` e `TEAM` da lista `mobileTabs`.
-- Comentada a lÃ³gica que adicionava a aba `TEAM` para usuÃ¡rios nÃ£o-staff.
+- Remoção de `ACQUISITION` e `TEAM` da lista `mobileTabs`.
+- Comentada a lógica que adicionava a aba `TEAM` para usuários não-staff.
 
 #### `App.tsx`
-- Comentados os blocos de renderizaÃ§Ã£o das abas `TEAM` e `ACQUISITION`.
-- Isso desativa o acesso Ã s pÃ¡ginas correspondentes mesmo que a aba seja selecionada programaticamente.
+- Comentados os blocos de renderização das abas `TEAM` e `ACQUISITION`.
+- Isso desativa o acesso às páginas correspondentes mesmo que a aba seja selecionada programaticamente.
 
 #### `hooks/useAppNotifications.ts`
 - Comentados os ouvintes em tempo real (Supabase Realtime) para as tabelas `leads` e `campaign_chat_messages`.
-- Isso evita o processamento de notificaÃ§Ãµes de captaÃ§Ã£o em background.
+- Isso evita o processamento de notificações de captação em background.
 
 #### `features/support/components/ChatSidebar.tsx`
 - Comentadas as abas `TEAM` e `CAPTACAO` no menu lateral do chat de suporte.
 
-### ValidaÃ§Ã£o executada
+### Validação executada
 
-1. VerificaÃ§Ã£o visual: Os itens de menu sumiram tanto no Desktop quanto no Mobile.
-2. VerificaÃ§Ã£o de rotas: As abas nÃ£o sÃ£o mais renderizadas.
-3. VerificaÃ§Ã£o de performance: Menos ouvintes ativos no Supabase.
+1. Verificação visual: Os itens de menu sumiram tanto no Desktop quanto no Mobile.
+2. Verificação de rotas: As abas não são mais renderizadas.
+3. Verificação de performance: Menos ouvintes ativos no Supabase.
 
-### ConfirmaÃ§Ã£o de escopo
+### Confirmação de escopo
 
-1. Nenhum cÃ³digo foi deletado permanentemente.
-2. Nenhuma alteraÃ§Ã£o em banco de dados ou regras de negÃ³cio.
-3. Foco exclusivo na ocultaÃ§Ã£o de interface e gatilhos de notificaÃ§Ã£o.
+1. Nenhum código foi deletado permanentemente.
+2. Nenhuma alteração em banco de dados ou regras de negócio.
+3. Foco exclusivo na ocultação de interface e gatilhos de notificação.
 
 ---
 
-### 15/04/2026 - CorreÃ§Ã£o do BotÃ£o de Resgate (Withdraw)
-- **Objetivo**: Restaurar o funcionamento do botÃ£o "Resgatar" no card de lucro do Dashboard.
+### 15/04/2026 - Correção do Botão de Resgate (Withdraw)
+- **Objetivo**: Restaurar o funcionamento do botão "Resgatar" no card de lucro do Dashboard.
 - **Arquivos Alterados**:
   - `pages/DashboardPage.tsx`: Agora chama `ui.openModal('WITHDRAW')` diretamente.
-  - `containers/DashboardContainer.tsx`: Passa o objeto `ui` para a pÃ¡gina.
+  - `containers/DashboardContainer.tsx`: Passa o objeto `ui` para a página.
   - `components/cards/ProfitCard.tsx`: Removido `stopPropagation` que poderia interferir no clique.
   - `hooks/useUiState.ts`: Adicionada limpeza dos campos de resgate ao fechar modais.
-  - `components/modals/ModalGroups.tsx`: Melhorada a robustez da renderizaÃ§Ã£o do modal de resgate.
-- **Resultado**: O modal de resgate deve abrir consistentemente ao clicar no botÃ£o "Resgatar".
+  - `components/modals/ModalGroups.tsx`: Melhorada a robustez da renderização do modal de resgate.
+- **Resultado**: O modal de resgate deve abrir consistentemente ao clicar no botão "Resgatar".
 
-### 15/04/2026 - Ajuste de BalanÃ§o e Lucro Projetado
-- **Objetivo**: Corrigir a percepÃ§Ã£o de valores no Dashboard, focando em Lucro em vez de Montante Total, e garantir a visibilidade do modal de resgate.
+### 15/04/2026 - Ajuste de Balanço e Lucro Projetado
+- **Objetivo**: Corrigir a percepção de valores no Dashboard, focando em Lucro em vez de Montante Total, e garantir a visibilidade do modal de resgate.
 - **Arquivos Alterados**:
   - `domain/dashboard/stats.ts`: 
     - `totalReceived` agora calcula apenas o **Lucro Realizado** (juros + multas).
     - `expectedProfit` agora calcula o **Lucro Total Estimado** (Lucro Realizado + Lucro a Receber).
-    - `receivedThisMonth` agora conta apenas o lucro do mÃªs.
+    - `receivedThisMonth` agora conta apenas o lucro do mês.
   - `pages/DashboardPage.tsx`: Atualizados os labels para "Lucro Realizado" e "Lucro Total (Est.)".
   - `App.tsx`: Movido `ModalHostContainer` para fora do `AppShell` e adicionado `z-[9999]` para garantir visibilidade absoluta dos modais.
-  - `components/cards/ProfitCard.tsx`: Adicionado `z-index` aos botÃµes de resgate.
-- **Resultado**: Os nÃºmeros agora refletem a rentabilidade real da operaÃ§Ã£o e o botÃ£o de resgate foi blindado contra problemas de sobreposiÃ§Ã£o de layout.
+  - `components/cards/ProfitCard.tsx`: Adicionado `z-index` aos botões de resgate.
+- **Resultado**: Os números agora refletem a rentabilidade real da operação e o botão de resgate foi blindado contra problemas de sobreposição de layout.
 
-### 17/04/2026 - CorreÃ§Ã£o de Loop de InicializaÃ§Ã£o e ResiliÃªncia
+### 17/04/2026 - Correção de Loop de Inicialização e Resiliência
 - **Objetivo**: Resolver o problema onde o app ficava preso em "Sincronizando Sistema..." indefinidamente.
 - **Arquivos Alterados**:
   - `hooks/useAppState.ts`: 
-    - Corrigida a sintaxe do filtro `.or()` no Supabase (removidas aspas duplas desnecessÃ¡rias).
+    - Corrigida a sintaxe do filtro `.or()` no Supabase (removidas aspas duplas desnecessárias).
     - Melhorado o tratamento de erros em `fetchFullData` para capturar timeouts e erros de rede.
   - `features/auth/useAuth.ts`: 
-    - Adicionado um **Safety Timeout** de 15 segundos que forÃ§a `bootFinished = true` caso o processo de login/perfil do Supabase trave.
+    - Adicionado um **Safety Timeout** de 15 segundos que força `bootFinished = true` caso o processo de login/perfil do Supabase trave.
   - `components/AppGate.tsx`: 
-    - Adicionada tela de erro crÃ­tica para falhas de carregamento de dados, permitindo ao usuÃ¡rio tentar novamente ou voltar ao login em vez de ficar preso na tela de carregamento.
-- **Resultado**: O aplicativo agora possui mecanismos de fail-safe que garantem o carregamento ou a exibiÃ§Ã£o de um erro claro, eliminando o travamento silencioso na inicializaÃ§Ã£o.
+    - Adicionada tela de erro crítica para falhas de carregamento de dados, permitindo ao usuário tentar novamente ou voltar ao login em vez de ficar preso na tela de carregamento.
+- **Resultado**: O aplicativo agora possui mecanismos de fail-safe que garantem o carregamento ou a exibição de um erro claro, eliminando o travamento silencioso na inicialização.
 
-### 17/04/2026 - CorreÃ§Ã£o de Erros de SincronizaÃ§Ã£o e ResiliÃªncia de Rede
-- **Objetivo**: Resolver erros intermitentes de "Failed to fetch" e melhorar o diagnÃ³stico de falhas em tempo real.
+### 17/04/2026 - Correção de Erros de Sincronização e Resiliência de Rede
+- **Objetivo**: Resolver erros intermitentes de "Failed to fetch" e melhorar o diagnóstico de falhas em tempo real.
 - **Arquivos Alterados**:
   - `utils/fetchWithRetry.ts`: 
-    - Erros de rede agora incluem a URL de destino na mensagem, permitindo identificar exatamente qual serviÃ§o estÃ¡ falhando.
-    - Adicionado log de aviso (warn) detalhando o endpoint em cada tentativa de reconexÃ£o.
+    - Erros de rede agora incluem a URL de destino na mensagem, permitindo identificar exatamente qual serviço está falhando.
+    - Adicionado log de aviso (warn) detalhando o endpoint em cada tentativa de reconexão.
   - `index.html`: 
-    - Atualizada a **Content Security Policy (CSP)** para incluir domÃ­nios de APIs externas necessÃ¡rias que estavam sendo bloqueadas pelo navegador: `api.tiny.cloud` (notas), `*.asaas.com` e `*.mercadopago.com` (pagamentos).
+    - Atualizada a **Content Security Policy (CSP)** para incluir domínios de APIs externas necessárias que estavam sendo bloqueadas pelo navegador: `api.tiny.cloud` (notas), `*.asaas.com` e `*.mercadopago.com` (pagamentos).
   - `hooks/useAppState.ts`: 
-    - Expandido o tratamento de erros para reconhecer padrÃµes como "Failed to fetch" e "Load failed", exibindo uma mensagem amigÃ¡vel com orientaÃ§Ã£o de recarregamento para o usuÃ¡rio.
-- **Resultado**: ReduÃ§Ã£o de erros silenciosos bloqueados pelo navegador e melhoria na capacidade de diagnÃ³stico de problemas de conexÃ£o externa.
+    - Expandido o tratamento de erros para reconhecer padrões como "Failed to fetch" e "Load failed", exibindo uma mensagem amigável com orientação de recarregamento para o usuário.
+- **Resultado**: Redução de erros silenciosos bloqueados pelo navegador e melhoria na capacidade de diagnóstico de problemas de conexão externa.
 
-### 17/04/2026 - CorreÃ§Ã£o de Conflito de SessÃ£o e Auth Stability
-- **Objetivo**: Resolver erros crÃ­ticos de "Lock broken" e "lock stolen" no Supabase Auth que travavam a inicializaÃ§Ã£o do app.
+### 17/04/2026 - Correção de Conflito de Sessão e Auth Stability
+- **Objetivo**: Resolver erros críticos de "Lock broken" e "lock stolen" no Supabase Auth que travavam a inicialização do app.
 - **Arquivos Alterados**:
   - `lib/supabase.ts`: 
-    - Implementado o utilitÃ¡rio `getSynchronizedSession` que usa uma Promise compartilhada para de-duplicar chamadas concorrentes ao servidor de autenticaÃ§Ã£o.
-    - Isso evita que mÃºltiplos componentes "briguem" pelo bloqueio (lock) do localStorage durante o boot.
+    - Implementado o utilitário `getSynchronizedSession` que usa uma Promise compartilhada para de-duplicar chamadas concorrentes ao servidor de autenticação.
+    - Isso evita que múltiplos componentes "briguem" pelo bloqueio (lock) do localStorage durante o boot.
   - `utils/fetchWithRetry.ts`: 
-    - Otimizada a estratÃ©gia de retentativa para URLs de `/auth/v1/`.
-    - Reduzido o nÃºmero de retentativas e o delay inicial para evitar que chamadas de autenticaÃ§Ã£o segurem bloqueios por tempo excessivo, o que causava o erro de "lock stolen".
+    - Otimizada a estratégia de retentativa para URLs de `/auth/v1/`.
+    - Reduzido o número de retentativas e o delay inicial para evitar que chamadas de autenticação segurem bloqueios por tempo excessivo, o que causava o erro de "lock stolen".
   - `features/auth/useAuth.ts`: 
     - Migradas todas as chamadas de `supabase.auth.getSession()` para o novo `getSynchronizedSession()`.
-    - Atualizado o mapeador de erros para tratar mensagens de conflito de lock de forma amigÃ¡vel para o usuÃ¡rio.
-- **Resultado**: InicializaÃ§Ã£o do aplicativo muito mais estÃ¡vel e livre de erros de contenÃ§Ã£o de sessÃ£o em ambientes de recarregamento rÃ¡pido.
-
+    - Atualizado o mapeador de erros para tratar mensagens de conflito de lock de forma amigável para o usuário.
+- **Resultado**: Inicialização do aplicativo muito mais estável e livre de erros de contenção de sessão em ambientes de recarregamento rápido.
 

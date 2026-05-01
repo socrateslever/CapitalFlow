@@ -21,7 +21,7 @@ interface ChatSidebarProps {
 export const ChatSidebar: React.FC<ChatSidebarProps> = ({ 
     chats, clients, team, campaigns, unreadCampaignCount = 0, selectedChat, searchTerm, setSearchTerm, onSelectChat, diffLabel, onBulkDelete, chatTheme = 'dark'
 }) => {
-    const [activeTab, setActiveTab] = useState<'ACTIVE' | 'CLIENTS' | 'TEAM'>('ACTIVE');
+    const [activeTab, setActiveTab] = useState<'ACTIVE' | 'CLIENTS' | 'TEAM' | 'CAPTACAO'>('ACTIVE');
     const [isSelectionMode, setIsSelectionMode] = useState(false);
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
     const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
@@ -33,6 +33,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
         if (activeTab === 'ACTIVE') list = chats;
         else if (activeTab === 'CLIENTS') list = clients;
         else if (activeTab === 'TEAM') list = team;
+        else if (activeTab === 'CAPTACAO') list = campaigns.map(c => ({ ...c, clientName: c.nome, type: 'CAMPAIGN' }));
 
         if (activeTab === 'ACTIVE' || activeTab === 'CLIENTS') {
             return groupContractsByDebtorName(list);
@@ -199,6 +200,19 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                             className={`flex-1 py-2 text-[10px] font-black uppercase rounded-lg transition-all flex items-center justify-center gap-1 ${activeTab === 'TEAM' ? 'bg-slate-800 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}
                         >
                             <Briefcase size={12}/> Equipe
+                        </button>
+                        */}
+                        {/* Desativado temporariamente: CAPTACAO
+                        <button 
+                            onClick={() => setActiveTab('CAPTACAO')}
+                            className={`flex-1 py-2 text-[10px] font-black uppercase rounded-lg transition-all flex items-center justify-center gap-1 relative ${activeTab === 'CAPTACAO' ? 'bg-slate-800 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}
+                        >
+                            <Megaphone size={12}/> Captação
+                            {unreadCampaignCount > 0 && (
+                                <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 text-white text-[8px] font-black flex items-center justify-center rounded-full ring-2 ring-slate-900">
+                                    {unreadCampaignCount > 9 ? '9+' : unreadCampaignCount}
+                                </span>
+                            )}
                         </button>
                         */}
                     </div>

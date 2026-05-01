@@ -46,7 +46,7 @@ export interface CapitalSource {
 
 export type SortOption = 'RECENT' | 'NAME' | 'VALUE' | 'STATUS' | 'DUE_DATE_ASC' | 'NAME_ASC' | 'CREATED_DESC' | 'UPDATED_DESC';
 
-export type AppTab = 'DASHBOARD' | 'CLIENTS' | 'LEGAL' | 'SOURCES' | 'PROFILE' | 'LEADS' | 'SETTINGS' | 'CONTRACT_DETAILS' | 'AGENDA' | 'SIMULATOR' | 'FLOW' | 'LEGAL_DOCUMENT_EDITOR' | 'EXTRATO' | 'SUPPORT' | 'REPORTS';
+export type AppTab = 'DASHBOARD' | 'CLIENTS' | 'LEGAL' | 'SOURCES' | 'PROFILE' | 'TEAM' | 'LEADS' | 'ACQUISITION' | 'SETTINGS' | 'CONTRACT_DETAILS' | 'AGENDA' | 'SIMULATOR' | 'FLOW' | 'LEGAL_DOCUMENT_EDITOR' | 'EXTRATO' | 'SUPPORT' | 'REPORTS';
 
 export type LoanBillingModality =
   | 'MONTHLY'
@@ -289,6 +289,8 @@ export interface Loan {
   portalShortcode?: string;
   contato_whatsapp?: string;
   witnesses?: LegalWitness[];
+  last_billed_at?: string;
+  billing_count?: number;
 }
 
 /* =====================================================

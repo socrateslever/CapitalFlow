@@ -5,6 +5,7 @@ import { Loan, CapitalSource, UserProfile, Agreement, AgreementInstallment } fro
 import { filterLoans } from '../domain/filters/loanFilters';
 import { buildDashboardStats } from '../domain/dashboard/stats';
 import { agreementService } from '../features/agreements/services/agreementService';
+import { contractsService } from '../services/contracts.service';
 
 interface DashboardContainerProps {
   loans: Loan[];
@@ -78,6 +79,16 @@ export const DashboardContainer: React.FC<DashboardContainerProps> = ({
       ui.openModal('NEW_APORTE');
   };
 
+  const handleMarkAsBilled = async (loan: Loan) => {
+    try {
+      await contractsService.markAsBilled(loan.id, loan.billing_count || 0);
+      showToast("Contrato marcado como cobrado!", "success");
+      onRefresh();
+    } catch (e: any) {
+      showToast("Erro ao marcar cobrança: " + e.message, "error");
+    }
+  };
+
   return (
     <DashboardPage 
         loans={loans}
@@ -110,6 +121,7 @@ export const DashboardContainer: React.FC<DashboardContainerProps> = ({
         }}
         onActivate={loanCtrl.handleActivateLoan}
         onNewAporte={handleNewAporte}
+        onMarkAsBilled={handleMarkAsBilled}
         onAgreementPayment={handleAgreementPayment}
         onReverseAgreementPayment={handleReverseAgreementPayment}
         onNavigate={onNavigate}

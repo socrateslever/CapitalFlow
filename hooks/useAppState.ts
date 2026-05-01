@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, getSynchronizedSession } from '../lib/supabase';
 import { Loan, Client, CapitalSource, UserProfile, SortOption, AppTab, LoanStatusFilter } from '../types';
 import { maskPhone, maskDocument } from '../utils/formatters';
 import { mapLoanFromDB } from '../services/adapters/dbAdapters';
 import { asString, asNumber } from '../utils/safe';
 
-const DEFAULT_NAV: AppTab[] = ['DASHBOARD', 'CLIENTS'] as AppTab[];
-const DEFAULT_HUB: AppTab[] = ['SOURCES', 'LEGAL', 'PROFILE'] as AppTab[];
+const DEFAULT_NAV: AppTab[] = ['DASHBOARD', 'CLIENTS', 'TEAM'] as AppTab[];
+const DEFAULT_HUB: AppTab[] = ['SOURCES', 'LEGAL', 'PROFILE', 'LEADS', 'ACQUISITION'] as AppTab[];
 
 const CACHE_KEY = (profileId: string) => `cm_cache_${profileId}`;
 const CACHE_MAX_AGE = 12 * 60 * 60 * 1000; // 12 horas
@@ -62,6 +62,10 @@ const DEMO_USER: UserProfile = {
 
 const mapProfileFromDB = (data: any): UserProfile => {
   let hubOrder = Array.from(new Set(((data.ui_hub_order || DEFAULT_HUB) as string[]).filter(t => t !== 'MASTER'))) as AppTab[];
+
+  if (Array.isArray(hubOrder) && !hubOrder.includes('ACQUISITION')) {
+    hubOrder = [...hubOrder, 'ACQUISITION'];
+  }
 
   return {
     id: data.id,
@@ -131,7 +135,7 @@ export const useAppState = (activeProfileId: string | null, onProfileNotFound?: 
     }
 
     // Antes de buscar dados, verifica se a sessão do Supabase ainda é válida
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session } } = await getSynchronizedSession();
     
     // 🔥 CORREÇÃO: Resiliência na identificação do perfil.
     // O ID solicitado pode ser um UUID aleatório ou o ID do próprio Auth User.

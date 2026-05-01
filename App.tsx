@@ -25,6 +25,7 @@ import { agreementService } from './features/agreements/services/agreementServic
 import { ModalProvider } from './contexts/ModalContext';
 import { ModalHost } from './components/modals/ModalHost';
 import { filesService } from './services/files.service';
+import { contractsService } from './services/contracts.service';
 
 // Lazy loading components for optimization
 const DashboardContainer = lazy(() => import('./containers/DashboardContainer').then(m => ({ default: m.DashboardContainer })));
@@ -38,9 +39,11 @@ const CalendarView = lazy(() => import('./features/calendar/CalendarView'));
 const SimulatorPanel = lazy(() => import('./features/simulator/SimulatorPanel').then(m => ({ default: m.SimulatorPanel })));
 const FlowModal = lazy(() => import('./components/modals/FlowModal').then(m => ({ default: m.FlowModal })));
 
+const TeamPage = lazy(() => import('./pages/TeamPage').then(m => ({ default: m.TeamPage })));
 const InvitePage = lazy(() => import('./pages/InvitePage').then(m => ({ default: m.InvitePage })));
 const SetupPasswordPage = lazy(() => import('./pages/SetupPasswordPage').then(m => ({ default: m.SetupPasswordPage })));
 const LeadsPage = lazy(() => import('./pages/LeadsPage').then(m => ({ default: m.LeadsPage })));
+const CustomerAcquisitionPage = lazy(() => import('./pages/Comercial/CaptacaoClientes').then(m => ({ default: m.CustomerAcquisitionPage })));
 const ReportsPage = lazy(() => import('./features/reports/pages/ReportsPage').then(m => ({ default: m.ReportsPage })));
 const SettingsPage = lazy(() => import('./pages/SettingsPage').then(m => ({ default: m.SettingsPage })));
 const ContractDetailsPage = lazy(() => import('./pages/ContractDetailsPage').then(m => ({ default: m.ContractDetailsPage })));
@@ -58,6 +61,7 @@ export const App: React.FC = () => {
   const rawPortalCodeParam = urlParams.get('portal_code') || urlParams.get('code');
   const hasPortalAccessParams = !!rawPortalTokenParam && !!rawPortalCodeParam;
 
+  // ✅ Hooks SEMPRE no topo (regra do React)
   const { portalToken, portalCode, legalSignToken: legalSignTokenFromHook } = usePortalRouting();
   const { toast, showToast, clearToast } = useToast();
 
@@ -426,6 +430,7 @@ export const App: React.FC = () => {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
+                  transition={{ duration: 0.1, ease: 'linear' }}
                 >
                   <ClientsContainer
                     clients={clients}
@@ -440,6 +445,25 @@ export const App: React.FC = () => {
                 </motion.div>
               )}
 
+              {/* Desativado temporariamente: TEAM
+              {activeTab === 'TEAM' && !activeUser?.supervisor_id && (
+                <motion.div 
+                  key="team-view" 
+                  initial={{ opacity: 0 }} 
+                  animate={{ opacity: 1 }} 
+                  exit={{ opacity: 0 }}
+                >
+                  <TeamPage
+                    activeUser={activeUser}
+                    showToast={showToast}
+                    onRefresh={() => fetchFullData(activeUser?.id || '')}
+                    ui={ui}
+                    goBack={goBack}
+                    isStealthMode={ui.isStealthMode}
+                  />
+                </motion.div>
+              )}
+              */}
 
               {activeTab === 'SOURCES' && (
                 <motion.div 
@@ -447,6 +471,7 @@ export const App: React.FC = () => {
                   initial={{ opacity: 0 }} 
                   animate={{ opacity: 1 }} 
                   exit={{ opacity: 0 }}
+                  transition={{ duration: 0.1, ease: 'linear' }}
                 >
                   <SourcesContainer 
                     loans={loans} 
@@ -468,6 +493,7 @@ export const App: React.FC = () => {
                   initial={{ opacity: 0 }} 
                   animate={{ opacity: 1 }} 
                   exit={{ opacity: 0 }}
+                  transition={{ duration: 0.1, ease: 'linear' }}
                 >
                   <ProfileContainer
                     activeUser={activeUser}
@@ -495,6 +521,7 @@ export const App: React.FC = () => {
                   initial={{ opacity: 0 }} 
                   animate={{ opacity: 1 }} 
                   exit={{ opacity: 0 }}
+                  transition={{ duration: 0.1, ease: 'linear' }}
                 >
                   <LegalContainer
                     loans={loans}
@@ -517,6 +544,7 @@ export const App: React.FC = () => {
                   initial={{ opacity: 0 }} 
                   animate={{ opacity: 1 }} 
                   exit={{ opacity: 0 }}
+                  transition={{ duration: 0.1, ease: 'linear' }}
                 >
                   <LeadsPage activeUser={activeUser} goBack={goBack} isStealthMode={ui.isStealthMode} />
                 </motion.div>
@@ -528,6 +556,7 @@ export const App: React.FC = () => {
                   initial={{ opacity: 0 }} 
                   animate={{ opacity: 1 }} 
                   exit={{ opacity: 0 }}
+                  transition={{ duration: 0.1, ease: 'linear' }}
                 >
                   <ReportsPage 
                     loans={loans} 
@@ -538,6 +567,18 @@ export const App: React.FC = () => {
                 </motion.div>
               )}
 
+              {/* Desativado temporariamente: ACQUISITION
+              {activeTab === 'ACQUISITION' && (
+                <motion.div 
+                  key="acq-view" 
+                  initial={{ opacity: 0 }} 
+                  animate={{ opacity: 1 }} 
+                  exit={{ opacity: 0 }}
+                >
+                  <CustomerAcquisitionPage activeUser={activeUser} goBack={goBack} isStealthMode={ui.isStealthMode} />
+                </motion.div>
+              )}
+              */}
 
               {/* Removido tab SUPPORT não autorizada */}
 
@@ -547,6 +588,7 @@ export const App: React.FC = () => {
                   initial={{ opacity: 0 }} 
                   animate={{ opacity: 1 }} 
                   exit={{ opacity: 0 }}
+                  transition={{ duration: 0.1, ease: 'linear' }}
                 >
                   <OperatorSupportChat activeUser={activeUser} onClose={() => setActiveTab('DASHBOARD')} />
                 </motion.div>
@@ -558,6 +600,7 @@ export const App: React.FC = () => {
                   initial={{ opacity: 0 }} 
                   animate={{ opacity: 1 }} 
                   exit={{ opacity: 0 }}
+                  transition={{ duration: 0.1, ease: 'linear' }}
                 >
                   <SettingsPage />
                 </motion.div>
@@ -566,10 +609,10 @@ export const App: React.FC = () => {
               {activeTab === 'CONTRACT_DETAILS' && ui.selectedLoanId && (
                 <motion.div
                   key="contract-details-view"
-                  initial={{ opacity: 0, y: 20 }}
+                  initial={{ opacity: 0, y: 5 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 20 }}
-                  transition={{ duration: 0.3 }}
+                  exit={{ opacity: 0, y: 5 }}
+                  transition={{ duration: 0.1, ease: 'linear' }}
                 >
                   <ContractDetailsPage 
                     loanId={ui.selectedLoanId}
@@ -588,7 +631,25 @@ export const App: React.FC = () => {
                       fetchFullData(activeUser?.id || '');
                     }}
                     isProcessing={ui.isProcessingPayment}
-                    onOpenMessage={(l) => { ui.setMessageModalLoan(l); ui.openModal('MESSAGE_HUB'); }}
+                    onOpenMessage={(l) => { 
+                      ui.setMessageModalLoan(l); 
+                      ui.openModal('MESSAGE_HUB');
+                      
+                      // Marca como cobrado se houver atraso detectado
+                      const hasLate = l.installments?.some(i => 
+                        i.status !== 'PAID' && 
+                        i.status !== 'PAGO' && 
+                        new Date(i.dueDate) < new Date()
+                      );
+
+                      if (hasLate) {
+                        contractsService.markAsBilled(l.id, l.billing_count || 0).then(() => {
+                          fetchFullData(activeUser?.id || '');
+                        }).catch(err => {
+                          if (isDev) console.error('[AUTO_BILL] Erro:', err);
+                        });
+                      }
+                    }}
                     onRenegotiate={(l) => { 
                         const loans = Array.isArray(l) ? l : [l];
                         ui.setRenegotiationModalLoans(loans); 
@@ -654,6 +715,7 @@ export const App: React.FC = () => {
                   initial={{ opacity: 0 }} 
                   animate={{ opacity: 1 }} 
                   exit={{ opacity: 0 }}
+                  transition={{ duration: 0.1, ease: 'linear' }}
                 >
                   <SimulatorPanel 
                     onClose={goBack} 
@@ -673,6 +735,7 @@ export const App: React.FC = () => {
                   initial={{ opacity: 0 }} 
                   animate={{ opacity: 1 }} 
                   exit={{ opacity: 0 }}
+                  transition={{ duration: 0.1, ease: 'linear' }}
                 >
                   <CalendarView
                     activeUser={activeUser}
@@ -711,7 +774,7 @@ export const App: React.FC = () => {
               )}
 
               {activeTab === 'FLOW' && activeUser && (
-                <motion.div key="flow-view" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                <motion.div key="flow-view" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.1, ease: 'linear' }}>
                   <FlowModal 
                     loans={loans} 
                   />

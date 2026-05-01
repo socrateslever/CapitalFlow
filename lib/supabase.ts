@@ -58,15 +58,20 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
  * Utilitário para obter sessão sincronizada, evitando "lock stolen"
  * causado por múltiplas chamadas concorrentes ao getSession/getUser.
  */
-let sessionPromise: Promise<any> | null = null;
+let sessionPromise: Promise<{ data: { session: any }, error: any }> | null = null;
+
 export async function getSynchronizedSession() {
   if (sessionPromise) return sessionPromise;
   
-  sessionPromise = supabase.auth.getSession().finally(() => {
-    // Limpa a promise após um curto delay para permitir novas verificações se necessário,
-    // mas bloqueando o "frenesi" inicial de boot.
-    setTimeout(() => { sessionPromise = null; }, 500);
-  });
+  sessionPromise = (async () => {
+    try {
+      return await supabase.auth.getSession();
+    } finally {
+      // Limpa a promise após um delay (1s) para permitir novas verificações se necessário,
+      // mas bloqueando o "frenesi" inicial de boot que causa "lock stolen".
+      setTimeout(() => { sessionPromise = null; }, 1000);
+    }
+  })();
   
   return sessionPromise;
 }

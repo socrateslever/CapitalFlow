@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Dispatch, SetStateAction } from 'react';
 import { supabase } from '../lib/supabase';
 import { Loan, LoanStatus, CapitalSource } from '../types';
 import { loanEngine, isLegallyActionable } from '../domain/loanEngine';
@@ -33,26 +32,6 @@ interface NotificationProps {
 }
 
 const MAX_VISIBLE_NOTIFICATIONS = 40;
-const CRITICAL_NOTIFICATION_COOLDOWN_MS = 24 * 60 * 60 * 1000;
-const NON_CRITICAL_NOTIFICATION_COOLDOWN_MS = 48 * 60 * 60 * 1000;
-const DISMISSED_NOTIFICATIONS_KEY = 'cm_dismissed_notifications';
-const NOTIFIED_NOTIFICATIONS_KEY = 'cm_notified_notifications';
-
-const readNotificationMap = (storageKey: string) => {
-  try {
-    return JSON.parse(localStorage.getItem(storageKey) || '{}') as Record<string, number>;
-  } catch {
-    return {};
-  }
-};
-
-const isCriticalNotification = (
-  notif: Pick<InAppNotification, 'type' | 'isPersistent'>,
-) => notif.type === 'error' || Boolean(notif.isPersistent);
-
-const getNotificationCooldownMs = (
-  notif: Pick<InAppNotification, 'type' | 'isPersistent'>,
-) => (isCriticalNotification(notif) ? CRITICAL_NOTIFICATION_COOLDOWN_MS : NON_CRITICAL_NOTIFICATION_COOLDOWN_MS);
 
 export const useAppNotifications = ({
   loans,
@@ -72,56 +51,32 @@ export const useAppNotifications = ({
   const queueRef = useRef<Omit<InAppNotification, 'id' | 'createdAt'>[]>([]);
   const queueTimer = useRef<any>(null);
   const isQueueRunning = useRef(false);
-  const [dismissedMap, setDismissedMap] = useState<Record<string, number>>(
-    () => readNotificationMap(DISMISSED_NOTIFICATIONS_KEY),
-  );
-  const [notifiedMap, setNotifiedMap] = useState<Record<string, number>>(
-    () => readNotificationMap(NOTIFIED_NOTIFICATIONS_KEY),
-  );
-  const [notifications, setNotifications] = useState<InAppNotification[]>([]);
+  const [dismissedMap, setDismissedMap] = useState<Record<string, number>>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('cm_dismissed_notifications') || '{}');
+    } catch {
+      return {};
+    }
+  });
 
+  const isDismissed = (type?: string, id?: string) => {
+    if (!type || !id) return false;
+    const key = `${type}_${id}`;
+    const dismissedAt = dismissedMap[key];
+    if (!dismissedAt) return false;
+    
+    const now = Date.now();
+    const twelveHours = 12 * 60 * 60 * 1000;
+    return (now - dismissedAt) < twelveHours;
+  };
+
+  const [notifications, setNotifications] = useState<InAppNotification[]>([]);
   useEffect(() => {
     notificationsRef.current = notifications;
   }, [notifications]);
 
-  const buildFingerprint = (
-    notif: Pick<InAppNotification, 'title' | 'message' | 'item_type' | 'item_id'>,
-  ) => [notif.item_type || 'none', notif.item_id || 'none', notif.title, notif.message].join('::');
-
-  const buildStorageKey = (type?: string, id?: string) => {
-    if (!type || !id) return null;
-    return `${type}_${id}`;
-  };
-
-  const shouldSuppressNotification = useCallback((
-    notif: Pick<InAppNotification, 'type' | 'isPersistent' | 'item_type' | 'item_id'>,
-  ) => {
-    const key = buildStorageKey(notif.item_type, notif.item_id);
-    if (!key) return false;
-
-    const lastDismissedAt = dismissedMap[key] || 0;
-    const lastNotifiedAt = notifiedMap[key] || 0;
-    const lastInteractionAt = Math.max(lastDismissedAt, lastNotifiedAt);
-    if (!lastInteractionAt) return false;
-
-    return Date.now() - lastInteractionAt < getNotificationCooldownMs(notif);
-  }, [dismissedMap, notifiedMap]);
-
-  const persistNotificationTimestamp = useCallback((
-    storageKey: string,
-    setter: Dispatch<SetStateAction<Record<string, number>>>,
-    notif: Pick<InAppNotification, 'item_type' | 'item_id'>,
-  ) => {
-    const key = buildStorageKey(notif.item_type, notif.item_id);
-    if (!key) return;
-
-    const now = Date.now();
-    setter((prev) => {
-      const next = { ...prev, [key]: now };
-      localStorage.setItem(storageKey, JSON.stringify(next));
-      return next;
-    });
-  }, []);
+  const buildFingerprint = (notif: Pick<InAppNotification, 'title' | 'message' | 'item_type' | 'item_id'>) =>
+    [notif.item_type || 'none', notif.item_id || 'none', notif.title, notif.message].join('::');
 
   const flushQueue = useCallback(() => {
     if (isQueueRunning.current) return;
@@ -136,7 +91,7 @@ export const useAppNotifications = ({
 
       const fingerprint = buildFingerprint(next);
       const existsInState = notificationsRef.current.some(
-        (n) => buildFingerprint(n) === fingerprint,
+        (n) => buildFingerprint(n) === fingerprint
       );
 
       if (!existsInState) {
@@ -159,33 +114,33 @@ export const useAppNotifications = ({
   }, []);
 
   const addNotification = useCallback((notif: Omit<InAppNotification, 'id' | 'createdAt'>) => {
-    if (shouldSuppressNotification(notif)) return false;
-
+    if (isDismissed(notif.item_type, notif.item_id)) return;
     const fingerprint = buildFingerprint(notif);
-    const cooldown = getNotificationCooldownMs(notif);
-    const duplicateInState = notificationsRef.current.some(
-      (n) => buildFingerprint(n) === fingerprint && Date.now() - n.createdAt < cooldown,
-    );
-    if (duplicateInState) return false;
+
+    const duplicateInState = notificationsRef.current.some((n) => {
+      return buildFingerprint(n) === fingerprint && Date.now() - n.createdAt < 12 * 60 * 60 * 1000;
+    });
+    if (duplicateInState) return;
 
     const duplicateInQueue = queueRef.current.some((n) => buildFingerprint(n) === fingerprint);
-    if (duplicateInQueue) return false;
+    if (duplicateInQueue) return;
 
-    persistNotificationTimestamp(NOTIFIED_NOTIFICATIONS_KEY, setNotifiedMap, notif);
     queueRef.current.push(notif);
     flushQueue();
-    return true;
-  }, [flushQueue, persistNotificationTimestamp, shouldSuppressNotification]);
+  }, [dismissedMap, flushQueue]);
 
   const removeNotification = useCallback((id: string) => {
-    setNotifications((prev) => {
-      const target = prev.find((n) => n.id === id);
+    setNotifications(prev => {
+      const target = prev.find(n => n.id === id);
       if (target?.item_type && target?.item_id) {
-        persistNotificationTimestamp(DISMISSED_NOTIFICATIONS_KEY, setDismissedMap, target);
+        const key = `${target.item_type}_${target.item_id}`;
+        const newMap = { ...dismissedMap, [key]: Date.now() };
+        setDismissedMap(newMap);
+        localStorage.setItem('cm_dismissed_notifications', JSON.stringify(newMap));
       }
-      return prev.filter((n) => n.id !== id);
+      return prev.filter(n => n.id !== id);
     });
-  }, [persistNotificationTimestamp]);
+  }, [dismissedMap]);
 
   const resetNotifiedCaches = () => {
     notifiedDueLoans.current = new Set();
@@ -197,6 +152,7 @@ export const useAppNotifications = ({
     loansRef.current = loans;
   }, [loans]);
 
+  // 1. Monitoramento em Tempo Real (Eventos Críticos de Negócio)
   useEffect(() => {
     if (!activeUser || disabled) return;
 
@@ -213,30 +169,27 @@ export const useAppNotifications = ({
         (payload) => {
           if (payload.new.status === 'PENDENTE') {
             const onClick = () => {
-              setActiveTab('CONTRACT_DETAILS');
-              setSelectedLoanId(payload.new.loan_id);
+                setActiveTab('CONTRACT_DETAILS');
+                setSelectedLoanId(payload.new.loan_id);
             };
-
-            const wasAdded = addNotification({
-              title: 'Intenção de Pagamento Recebida!',
-              message: 'Um cliente enviou uma intenção de pagamento.',
-              type: 'success',
-              item_type: 'pagamento',
-              item_id: payload.new.id,
-              metadata: { loan_id: payload.new.loan_id },
+            notificationService.notify(
+              'Intenção de Pagamento Recebida!',
+              'Um cliente enviou uma intenção de pagamento.',
+              onClick
+            );
+            addNotification({
+                title: 'Intenção de Pagamento Recebida!',
+                message: 'Um cliente enviou uma intenção de pagamento.',
+                type: 'success',
+                item_type: 'pagamento',
+                item_id: payload.new.id,
+                metadata: { loan_id: payload.new.loan_id }
             });
-
-            if (wasAdded) {
-              notificationService.notify(
-                'Intenção de Pagamento Recebida!',
-                'Um cliente enviou uma intenção de pagamento.',
-                onClick,
-              );
-              showToast('Nova intenção de pagamento recebida!', 'success');
-            }
+            showToast('Nova intenção de pagamento recebida!', 'success');
           }
-        },
+        }
       )
+      // EVENTO REALTIME: Mudança em parcelas (vencimento/atraso)
       .on(
         'postgres_changes',
         {
@@ -253,36 +206,92 @@ export const useAppNotifications = ({
             !loan.activeAgreement
           ) {
             const onClick = () => {
-              setActiveTab('LEGAL');
-              setSelectedLoanId(loan.id);
+                setActiveTab('LEGAL');
+                setSelectedLoanId(loan.id);
             };
-
-            const wasAdded = addNotification({
-              title: 'Ação Jurídica Necessária',
-              message: `Contrato de ${loan.debtorName} está VENCIDO e sem assinatura.`,
-              type: 'warning',
-              item_type: 'documento',
-              item_id: loan.id,
-              metadata: { loan_id: loan.id },
+            notificationService.notify(
+              'Ação Jurídica Necessária',
+              `Contrato de ${loan.debtorName} está VENCIDO e sem assinatura.`,
+              onClick
+            );
+            addNotification({
+                title: 'Ação Jurídica Necessária',
+                message: `Contrato de ${loan.debtorName} está VENCIDO e sem assinatura.`,
+                type: 'warning',
+                item_type: 'documento',
+                item_id: loan.id,
+                metadata: { loan_id: loan.id }
             });
-
-            if (wasAdded) {
-              notificationService.notify(
-                'Ação Jurídica Necessária',
-                `Contrato de ${loan.debtorName} está VENCIDO e sem assinatura.`,
-                onClick,
-              );
-            }
           }
-        },
+        }
       )
+      /* Desativado temporariamente: Notificações de Captação
+      // EVENTO REALTIME: Novo Lead de Captação
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'leads',
+          filter: `profile_id=eq.${activeUser.id}`,
+        },
+        (payload) => {
+          const onClick = () => {
+              setActiveTab('LEADS');
+          };
+          notificationService.notify(
+            'Novo Lead de Captação!',
+            `O cliente ${payload.new.nome} iniciou uma simulação.`,
+            onClick
+          );
+          addNotification({
+              title: 'Novo Lead de Captação!',
+              message: `O cliente ${payload.new.nome} iniciou uma simulação.`,
+              type: 'info',
+              item_type: 'lead',
+              item_id: payload.new.id
+          });
+          showToast(`Novo lead: ${payload.new.nome}`, 'success');
+        }
+      )
+      // EVENTO REALTIME: Nova Mensagem no Chat de Captação
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'campaign_chat_messages',
+          filter: `profile_id=eq.${activeUser.id}`,
+        },
+        (payload) => {
+          if (payload.new.sender === 'LEAD') {
+            const onClick = () => {
+                setActiveTab('LEADS');
+            };
+            notificationService.notify(
+              'Nova Mensagem de Lead',
+              `Mensagem recebida no chat de captação.`,
+              onClick
+            );
+            addNotification({
+                title: 'Nova Mensagem de Lead',
+                message: `Mensagem recebida no chat de captação.`,
+                type: 'info',
+                item_type: 'lead',
+                item_id: payload.new.lead_id
+            });
+          }
+        }
+      )
+      */
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [activeUser, addNotification, disabled, setActiveTab, setSelectedLoanId, showToast]);
+  }, [activeUser, disabled, setActiveTab, setSelectedLoanId, showToast]);
 
+  // 2. Monitoramento Periódico (Vencimentos e Saldo)
   const runScan = async () => {
     if (disabled || !activeUser) return;
 
@@ -291,6 +300,7 @@ export const useAppNotifications = ({
       notificationService.requestPermission();
     }
 
+    // A) Contratos vencendo HOJE (Alerta Matinal)
     if (loans?.length) {
       loans.forEach((loan) => {
         if (!loan || (loan as any).isArchived) return;
@@ -303,36 +313,36 @@ export const useAppNotifications = ({
           if (status === LoanStatus.PAID) return;
 
           const diff = getDaysDiff(inst.dueDate);
+
+          // Notifica apenas no dia exato e uma única vez por sessão
           if (diff === 0 && !notifiedDueLoans.current.has(inst.id)) {
             notifiedDueLoans.current.add(inst.id);
             const onClick = () => {
-              setActiveTab('CONTRACT_DETAILS');
-              setSelectedLoanId(loan.id);
+                setActiveTab('CONTRACT_DETAILS');
+                setSelectedLoanId(loan.id);
             };
-
-            const wasAdded = addNotification({
-              title: 'Cobrança do Dia',
-              message: `O contrato de ${loan.debtorName} vence hoje. Fique atento!`,
-              type: 'info',
-              item_type: 'parcela',
-              item_id: inst.id,
-              metadata: { loan_id: loan.id },
+            notificationService.notify(
+              'Cobrança do Dia',
+              `O contrato de ${loan.debtorName} vence hoje. Fique atento!`,
+              onClick
+            );
+            addNotification({
+                title: 'Cobrança do Dia',
+                message: `O contrato de ${loan.debtorName} vence hoje. Fique atento!`,
+                type: 'info',
+                item_type: 'parcela',
+                item_id: inst.id,
+                metadata: { loan_id: loan.id }
             });
-
-            if (wasAdded) {
-              notificationService.notify(
-                'Cobrança do Dia',
-                `O contrato de ${loan.debtorName} vence hoje. Fique atento!`,
-                onClick,
-              );
-            }
           }
         });
       });
     }
 
+    // B) Jurídico: Vencidos sem assinatura (Notificação de Cobrança)
     if (loans?.length) {
       loans.forEach((loan) => {
+        // HARDENING: usa função isolada para evitar erro de HMR
         if (
           isLegallyActionable(loan) &&
           !(loan as any).activeAgreement &&
@@ -340,50 +350,43 @@ export const useAppNotifications = ({
         ) {
           notifiedUnsignedLegal.current.add(loan.id);
           const onClick = () => {
-            setActiveTab('LEGAL');
-            setSelectedLoanId(loan.id);
+              setActiveTab('LEGAL');
+              setSelectedLoanId(loan.id);
           };
-
-          const wasAdded = addNotification({
-            title: 'Ação Jurídica Necessária',
-            message: `Contrato de ${loan.debtorName} está VENCIDO e sem confissão de dívida assinada.`,
-            type: 'warning',
-            item_type: 'documento',
-            item_id: loan.id,
-            metadata: { loan_id: loan.id },
+          notificationService.notify(
+            'Ação Jurídica Necessária',
+            `Contrato de ${loan.debtorName} está VENCIDO e sem confissão de dívida assinada.`,
+            onClick
+          );
+          addNotification({
+              title: 'Ação Jurídica Necessária',
+              message: `Contrato de ${loan.debtorName} está VENCIDO e sem confissão de dívida assinada.`,
+              type: 'warning',
+              item_type: 'documento',
+              item_id: loan.id,
+              metadata: { loan_id: loan.id }
           });
-
-          if (wasAdded) {
-            notificationService.notify(
-              'Ação Jurídica Necessária',
-              `Contrato de ${loan.debtorName} está VENCIDO e sem confissão de dívida assinada.`,
-              onClick,
-            );
-          }
         }
       });
     }
 
+    // C) Saldo Crítico (Risco Operacional)
     (sources || []).forEach((source: any) => {
       if (!source?.id) return;
       const balance = Number(source.balance || 0);
 
+      // Alerta apenas se cair abaixo de 50 reais (Extrema urgencia de caixa)
       if (balance < 50 && balance > -1000) {
-        const shouldSuppress = shouldSuppressNotification({
-          type: 'error',
-          isPersistent: true,
-          item_type: 'carteira',
-          item_id: source.id,
-        });
-        if (shouldSuppress) return;
+        if (isDismissed('carteira', source.id)) return;
 
+        // Adiciona notificação in-app persistente
         addNotification({
           title: 'Saldo Crítico',
           message: `A fonte de capital "${source.name}" está com saldo muito baixo (${balance.toFixed(2)}).`,
           type: 'error',
           isPersistent: true,
           item_type: 'carteira',
-          item_id: source.id,
+          item_id: source.id
         });
       }
     });
@@ -406,7 +409,7 @@ export const useAppNotifications = ({
       clearTimeout(delay);
       if (checkTimer.current) clearInterval(checkTimer.current);
     };
-  }, [activeUser, addNotification, disabled, loans.length]);
+  }, [activeUser, disabled, loans.length]);
 
   useEffect(() => {
     return () => {

@@ -52,6 +52,7 @@ interface DashboardPageProps {
   isStealthMode: boolean;
   onRenegotiate: (loan: Loan | Loan[]) => void;
   onNewAporte: (loan: Loan) => void;
+  onMarkAsBilled: (loan: Loan) => void;
   onAgreementPayment: (loan: Loan, agreement: Agreement, inst: AgreementInstallment) => void;
   onReverseAgreementPayment: (loan: Loan, agreement: Agreement, inst: AgreementInstallment) => void;
   onNavigate: (path: string) => void;
@@ -66,7 +67,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   searchTerm, setSearchTerm, selectedLoanId, setSelectedLoanId, onEdit, onMessage, onArchive, onRestore, 
   onDelete, onActivate, onNote, onPortalLink, onUploadPromissoria, onUploadDoc, onViewPromissoria, 
   onViewDoc, onReviewSignal, onOpenComprovante, onReverseTransaction, setWithdrawModal, showToast, 
-  isStealthMode, onRenegotiate, onNewAporte, onAgreementPayment, onReverseAgreementPayment, onNavigate, onRefresh, ui, loanCtrl
+  isStealthMode, onRenegotiate, onNewAporte, onMarkAsBilled, onAgreementPayment, onReverseAgreementPayment, onNavigate, onRefresh, ui, loanCtrl
 }) => {
   
   // Agrupa os empréstimos filtrados por cliente, respeitando a ordenação selecionada
@@ -77,7 +78,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
       sources, activeUser, selectedLoanId, setSelectedLoanId, onEdit, onMessage, onArchive,
       onRestore, onDelete, onActivate, onNote, onPortalLink, onUploadPromissoria, onUploadDoc,
       onViewPromissoria, onViewDoc, onReviewSignal, onOpenComprovante, onReverseTransaction,
-      onRenegotiate, onNewAporte, onAgreementPayment, onReverseAgreementPayment, 
+      onRenegotiate, onNewAporte, onMarkAsBilled, onAgreementPayment, onReverseAgreementPayment, 
       onNavigate: (id: string) => onNavigate(`/contrato/${id}`),
       onLegalDocument: onNavigate,
       onRefresh, isStealthMode

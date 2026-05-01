@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { DocumentEditor } from './DocumentEditor';
-import { ChevronLeft, Scroll, UserCheck, ShieldCheck, Link as LinkIcon, FileSignature, Users, User, MapPin, Save, Loader2, Scale, ChevronDown, Copy, ExternalLink, Send, CheckCircle2, RotateCcw, Gavel, Search, Calendar, Trash2, Printer } from 'lucide-react';
+import { ChevronLeft, Scroll, UserCheck, ShieldCheck, Link as LinkIcon, FileSignature, Users, User, MapPin, Save, Loader2, Scale, ChevronDown, Copy, ExternalLink, Send, CheckCircle2, RotateCcw, Gavel, Search, Calendar, Trash2 } from 'lucide-react';
 import { Loan, UserProfile, LegalWitness, LegalDocumentParams, LegalDocumentRecord } from '../../../types';
 import { formatMoney, maskDocument } from '../../../utils/formatters';
 import { safeUUID } from '../../../utils/uuid';
@@ -52,34 +52,6 @@ export const ConfissaoDividaView: React.FC<ConfissaoDividaViewProps> = ({ loans,
     const creditorName = activeUser?.fullName || activeUser?.businessName || activeUser?.name || '';
     const creditorDoc = activeUser?.document || '';
     const creditorFullAddress = `${activeUser?.address || ''}, ${activeUser?.addressNumber || ''} - ${activeUser?.neighborhood || ''}, ${activeUser?.city || ''}/${activeUser?.state || ''}`;
-
-    const buildDocumentParams = useCallback((customContent?: string) => {
-        if (!selectedLoan || !activeUser) return null;
-
-        const baseParams = legalService.prepareDocumentParams(
-            selectedLoan,
-            activeUser,
-            selectedLoan.activeAgreement
-        );
-
-        return {
-            ...baseParams,
-            creditorName: creditorName.toUpperCase(),
-            creditorDoc,
-            creditorAddress: creditorFullAddress,
-            debtorName: selectedLoan.debtorName.toUpperCase(),
-            debtorDoc: selectedLoan.debtorDocument,
-            debtorPhone: selectedLoan.debtorPhone,
-            city: activeUser.city || 'Manaus',
-            state: activeUser.state || 'AM',
-            witnesses: [
-                availableWitnesses.find(w => w.id === selectedW1),
-                availableWitnesses.find(w => w.id === selectedW2)
-            ].filter(Boolean),
-            clauses: clauses.reduce((acc, c) => ({ ...acc, [c.id]: c.active }), {}),
-            customContent
-        } as LegalDocumentParams & { clauses: Record<string, boolean> };
-    }, [selectedLoan, activeUser, creditorName, creditorDoc, creditorFullAddress, availableWitnesses, selectedW1, selectedW2, clauses]);
 
     const resolveDocumentToken = useCallback((doc?: Partial<LegalDocumentRecord> | null) => {
         return doc?.view_token || doc?.public_access_token || '';
@@ -139,18 +111,43 @@ export const ConfissaoDividaView: React.FC<ConfissaoDividaViewProps> = ({ loans,
     );
 
     const handleGenerate = useCallback(() => {
-        const params = buildDocumentParams();
-        if (!params) return;
+        if (!selectedLoan || !activeUser) return;
+        
+        const finalAmount = selectedLoan.activeAgreement 
+            ? selectedLoan.activeAgreement.negotiatedTotal 
+            : selectedLoan.totalToReceive;
+
+        const params = {
+            loanId: selectedLoan.id,
+            creditorName: creditorName.toUpperCase(),
+            creditorDoc: creditorDoc,
+            creditorAddress: creditorFullAddress,
+            debtorName: selectedLoan.debtorName.toUpperCase(),
+            debtorDoc: selectedLoan.debtorDocument,
+            debtorAddress: selectedLoan.debtorAddress || 'Endereço não informado',
+            amount: finalAmount,
+            installments: selectedLoan.installments,
+            city: activeUser.city || 'Manaus',
+            state: activeUser.state || 'AM',
+            billingCycle: selectedLoan.billingCycle,
+            amortizationType: selectedLoan.amortizationType,
+            isAgreement: !!selectedLoan.activeAgreement,
+            clauses: clauses.reduce((acc, c) => ({ ...acc, [c.id]: c.active }), {}),
+            witnesses: [
+                availableWitnesses.find(w => w.id === selectedW1),
+                availableWitnesses.find(w => w.id === selectedW2)
+            ].filter(Boolean)
+        };
         
         const scenario = activeScenario === 'AUTO' 
-            ? (params.isAgreement && (params.installments?.length || 0) > 1 ? 'PARCELADO' : 'UNICO')
+            ? ((selectedLoan.installments?.length || 0) > 1 ? 'PARCELADO' : 'UNICO')
             : activeScenario;
 
         const content = scenario === 'PARCELADO'
             ? DocumentTemplates.confissaoDividaParcelado(params)
             : DocumentTemplates.confissaoDividaUnico(params);
         setDocumentContent(content);
-    }, [activeScenario, buildDocumentParams]);
+    }, [selectedLoan, activeUser, creditorName, creditorDoc, creditorFullAddress, clauses, selectedW1, selectedW2, availableWitnesses]);
 
     useEffect(() => {
         if (selectedLoan && !documentContent) {
@@ -165,47 +162,6 @@ export const ConfissaoDividaView: React.FC<ConfissaoDividaViewProps> = ({ loans,
         }
         toast.info("Rascunho atualizado com sucesso.");
     };
-
-    const handlePrintPreview = useCallback(() => {
-        const content = (documentContent || '').trim();
-        if (!content) {
-            toast.warning("Gere a minuta antes de imprimir.");
-            return;
-        }
-
-        const printWindow = window.open('', '_blank');
-        if (!printWindow) {
-            toast.error("Não foi possível abrir a janela de impressão.");
-            return;
-        }
-
-        const html = `
-            <!DOCTYPE html>
-            <html lang="pt-BR">
-            <head>
-                <meta charset="UTF-8" />
-                <title>Confissão de Dívida - Impressão</title>
-                <style>
-                    body {
-                        margin: 0;
-                        padding: 24px;
-                        background: #ffffff;
-                        font-family: 'Times New Roman', Times, serif;
-                    }
-                </style>
-            </head>
-            <body>
-                ${content}
-            </body>
-            </html>
-        `;
-
-        printWindow.document.open();
-        printWindow.document.write(html);
-        printWindow.document.close();
-        printWindow.focus();
-        setTimeout(() => printWindow.print(), 500);
-    }, [documentContent]);
 
     const handleToggleClause = (id: string) => {
         setClauses(prev => prev.map(c => c.id === id ? { ...c, active: !c.active } : c));
@@ -271,10 +227,39 @@ export const ConfissaoDividaView: React.FC<ConfissaoDividaViewProps> = ({ loans,
 
         setIsGenerating(true);
         try {
-            const params = buildDocumentParams(documentContent);
-            if (!params) return;
-            params.witnesses = [w1, w2];
-            params.customContent = documentContent;
+            const params: LegalDocumentParams = {
+                loanId: selectedLoan.id,
+                clientName: selectedLoan.debtorName,
+                creditorName: creditorName.toUpperCase(),
+                creditorDoc: creditorDoc,
+                creditorAddress: creditorFullAddress,
+                debtorName: selectedLoan.debtorName.toUpperCase(),
+                debtorDoc: selectedLoan.debtorDocument,
+                debtorPhone: selectedLoan.debtorPhone,
+                debtorAddress: selectedLoan.debtorAddress || 'Endereço não informado',
+                amount: selectedLoan.activeAgreement ? selectedLoan.activeAgreement.negotiatedTotal : selectedLoan.totalToReceive,
+                totalDebt: selectedLoan.activeAgreement ? selectedLoan.activeAgreement.negotiatedTotal : selectedLoan.totalToReceive,
+                originDescription: `Operação de mútuo financeiro ID ${selectedLoan.id.substring(0,8)}.`,
+                city: activeUser.city || 'Manaus',
+                state: activeUser.state || 'AM',
+                billingCycle: selectedLoan.billingCycle,
+                amortizationType: selectedLoan.amortizationType,
+                isAgreement: !!selectedLoan.activeAgreement,
+                witnesses: [w1, w2],
+                contractDate: selectedLoan.startDate,
+                agreementDate: new Date().toISOString(),
+                installments: selectedLoan.installments.map(i => ({
+                    number: i.number || 1,
+                    dueDate: i.dueDate,
+                    amount: i.amount,
+                    id: i.id || '',
+                    agreementId: '',
+                    status: 'PENDING',
+                    paidAmount: 0
+                })) as any[],
+                timestamp: new Date().toISOString(),
+                customContent: documentContent
+            };
 
             const ownerId = safeUUID((activeUser as any).supervisor_id) || safeUUID(activeUser.id);
             if (!ownerId) {
@@ -283,7 +268,7 @@ export const ConfissaoDividaView: React.FC<ConfissaoDividaViewProps> = ({ loans,
             }
             
             const docRecord = await legalService.generateAndRegisterDocument(
-                selectedLoan.activeAgreement?.id || selectedLoan.id, 
+                selectedLoan.id, 
                 params, 
                 ownerId
             );
@@ -807,43 +792,35 @@ export const ConfissaoDividaView: React.FC<ConfissaoDividaViewProps> = ({ loans,
                             </div>
                         ) : (
                             <div className="space-y-4">
-                                <div className="flex items-center justify-between px-2 gap-3">
+                                <div className="flex items-center justify-between px-2">
                                     <div className="flex items-center gap-3">
                                         <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-pulse" />
                                         <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Pré-visualização da Minuta</span>
                                     </div>
-                                    <div className="flex items-center gap-2">
-                                        <div className="flex items-center gap-2 bg-slate-900/60 p-1 rounded-xl border border-slate-800/50">
-                                            {[
-                                                { id: 'AUTO', label: 'Automático' },
-                                                { id: 'UNICO', label: 'Modelo Único' },
-                                                { id: 'PARCELADO', label: 'Modelo Parcelado' }
-                                            ].map(opt => (
-                                                <button
-                                                    key={opt.id}
-                                                    onClick={() => {
-                                                        setActiveScenario(opt.id as any);
-                                                        setTimeout(handleGenerate, 10);
-                                                    }}
-                                                    className={`px-3 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all ${activeScenario === opt.id ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/20' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800'}`}
-                                                >
-                                                    {opt.label}
-                                                </button>
-                                            ))}
-                                        </div>
-                                        <button 
-                                            onClick={handlePrintPreview}
-                                            className="text-[8px] font-black text-slate-600 hover:text-white uppercase tracking-widest flex items-center gap-1.5 transition-colors"
-                                        >
-                                            <Printer size={10}/> Imprimir
-                                        </button>
-                                        <button 
-                                            onClick={handleGenerate}
-                                            className="text-[8px] font-black text-slate-600 hover:text-white uppercase tracking-widest flex items-center gap-1.5 transition-colors"
-                                        >
-                                            <RotateCcw size={10}/> Resetar
-                                        </button>
+                                    <div className="flex items-center gap-2 bg-slate-900/60 p-1 rounded-xl border border-slate-800/50">
+                                        {[
+                                            { id: 'AUTO', label: 'Automático' },
+                                            { id: 'UNICO', label: 'Modelo Único' },
+                                            { id: 'PARCELADO', label: 'Modelo Parcelado' }
+                                        ].map(opt => (
+                                            <button
+                                                key={opt.id}
+                                                onClick={() => {
+                                                    setActiveScenario(opt.id as any);
+                                                    setTimeout(handleGenerate, 10);
+                                                }}
+                                                className={`px-3 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all ${activeScenario === opt.id ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/20' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800'}`}
+                                            >
+                                                {opt.label}
+                                            </button>
+                                        ))}
                                     </div>
+                                    <button 
+                                        onClick={handleGenerate}
+                                        className="text-[8px] font-black text-slate-600 hover:text-white uppercase tracking-widest flex items-center gap-1.5 transition-colors"
+                                    >
+                                        <RotateCcw size={10}/> Resetar
+                                    </button>
                                 </div>
                                 
                                 <DocumentEditor 

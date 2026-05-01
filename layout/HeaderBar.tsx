@@ -8,17 +8,17 @@ import {
   Users,
   LayoutDashboard,
   Wallet,
+  Briefcase,
   Calendar,
   Calculator,
   ArrowRightLeft,
+  Megaphone,
   User,
   Menu,
   Gavel,
   Bell,
   X,
   Trash2,
-  PieChart,
-  MessageCircle,
 } from 'lucide-react';
 import { UserProfile } from '../types';
 import { Tooltip } from '../components/ui/Tooltip';
@@ -248,6 +248,8 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
         return <LayoutDashboard size={14} className="text-blue-500" />;
       case 'CLIENTS':
         return <Users size={14} className="text-indigo-500" />;
+      case 'TEAM':
+        return <Briefcase size={14} className="text-amber-500" />;
       case 'SOURCES':
         return <Wallet size={14} className="text-emerald-500" />;
       case 'AGENDA':
@@ -256,16 +258,14 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
         return <Calculator size={14} className="text-blue-400" />;
       case 'FLOW':
         return <ArrowRightLeft size={14} className="text-teal-500" />;
+      case 'ACQUISITION':
+        return <Megaphone size={14} className="text-orange-400" />;
       case 'LEGAL':
         return <Gavel size={14} className="text-yellow-400" />;
       case 'PROFILE':
         return <User size={14} className="text-blue-400" />;
       case 'HUB':
         return <Menu size={14} className="text-slate-400" />;
-      case 'LEADS':
-        return <MessageCircle size={14} className="text-green-500" />;
-      case 'REPORTS':
-        return <PieChart size={14} className="text-indigo-400" />;
       default:
         return null;
     }
@@ -277,6 +277,8 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
         return 'Painel';
       case 'CLIENTS':
         return 'Clientes';
+      case 'TEAM':
+        return 'Equipe';
       case 'SOURCES':
         return 'Capital';
       case 'AGENDA':
@@ -285,16 +287,14 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
         return 'Simulador';
       case 'FLOW':
         return 'Extrato';
+      case 'ACQUISITION':
+        return 'Captação';
       case 'LEGAL':
         return 'Jurídico';
       case 'PROFILE':
         return 'Perfil';
       case 'HUB':
         return 'Menu';
-      case 'LEADS':
-        return 'Leads';
-      case 'REPORTS':
-        return 'Inteligência';
       default:
         return tab;
     }
@@ -556,14 +556,9 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             style={{ WebkitOverflowScrolling: 'touch' }}
           >
             {(navOrder || [])
-              .filter((tab) => 
-                tab !== 'PERSONAL_FINANCE' && 
-                tab !== 'AGENDA' && 
-                tab !== 'ACQUISITION' && 
-                tab !== 'TEAM' &&
-                tab !== 'LEADS'
-              )
+              .filter((tab) => tab !== 'PERSONAL_FINANCE' && tab !== 'AGENDA')
               .map((tab) => {
+                if (tab === 'TEAM' && activeUser?.supervisor_id) return null;
                 const isActive = activeTab === tab;
                 return (
                   <button
