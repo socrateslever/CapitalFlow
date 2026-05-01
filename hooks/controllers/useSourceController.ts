@@ -212,7 +212,9 @@ export const useSourceController = (
 
     const sourceBalance = Number(caixaLivreSource?.balance) || 0;
     const profileBalance = Number(activeUser.interestBalance) || 0;
-    const availableBalance = sourceBalance + profileBalance;
+    
+    // 🔥 ALINHAMENTO: Prioridade para a Fonte de Caixa Livre se ela existir
+    const availableBalance = caixaLivreSource ? sourceBalance : profileBalance;
 
     if (amount > availableBalance) {
       showToast('Saldo de lucro insuficiente.', 'error');

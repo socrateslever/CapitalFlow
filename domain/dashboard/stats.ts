@@ -68,8 +68,11 @@ export const buildDashboardStats = (loans: Loan[], sources: any[] = [], activeUs
 
   const interestBalanceFromSources = caixaLivreSources.reduce((acc, s) => acc + (Number(s.balance) || 0), 0);
   
-  // ✅ Fallback to activeUser.interestBalance if no source is found, but prefer source balance if it exists
-  const interestBalance = interestBalanceFromSources + (Number(activeUser?.interestBalance) || 0);
+  // 🔥 CORREÇÃO CRÍTICA: Prioridade total para as Fontes.
+  // Só usamos o interestBalance do perfil se o usuário NÃO tiver nenhuma fonte de "Caixa Livre/Lucro".
+  const interestBalance = (caixaLivreSources.length > 0)
+    ? interestBalanceFromSources 
+    : (Number(activeUser?.interestBalance) || 0);
   
   // Contagens para o gráfico de pizza
   const paidCount = classifiedLoans.filter(c => c.classification === 'QUITADO').length;
