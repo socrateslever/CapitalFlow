@@ -2,8 +2,78 @@
 import { supabase } from '../lib/supabase';
 import { rebuildLoanStateFromLedger } from '../domain/finance/calculations';
 import { Loan } from '../types';
+import { calculateDailyFixedTermInstallments } from '../features/loans/modalities/daily/daily.calculations';
+import { parseDateOnlyUTC } from '../utils/dateHelpers';
+
+const hasAnyPayment = (inst: any) =>
+  Number(inst?.paidTotal || inst?.paid_total || inst?.paidAmount || inst?.paid_amount || inst?.valor_pago || 0) > 0 ||
+  Number(inst?.paidPrincipal || inst?.paid_principal || 0) > 0 ||
+  Number(inst?.paidInterest || inst?.paid_interest || 0) > 0 ||
+  Number(inst?.paidLateFee || inst?.paid_late_fee || 0) > 0;
+
+const daysBetween = (startDate: string, endDate: string) => {
+  const start = parseDateOnlyUTC(startDate);
+  const end = parseDateOnlyUTC(endDate);
+  const msPerDay = 1000 * 60 * 60 * 24;
+  return Math.max(1, Math.round((end.getTime() - start.getTime()) / msPerDay));
+};
 
 export const maintenanceService = {
+  async rebuildLegacyFixedTermInstallments(loans: Loan[], ownerId: string) {
+    if (!Array.isArray(loans) || !ownerId) return 0;
+
+    let rebuiltCount = 0;
+
+    for (const loan of loans) {
+      if (loan.billingCycle !== 'DAILY_FIXED_TERM') continue;
+      if (!loan.installments || loan.installments.length !== 1) continue;
+      if (hasAnyPayment(loan.installments[0])) continue;
+
+      const durationDays = daysBetween(loan.startDate, loan.installments[0].dueDate);
+      if (durationDays <= 1) continue;
+
+      const generated = calculateDailyFixedTermInstallments(
+        Number(loan.principal) || 0,
+        Number(loan.interestRate) || 0,
+        loan.startDate,
+        String(durationDays),
+        !!loan.skipWeekends
+      );
+
+      const payload = generated.installments.map((inst) => ({
+        id: inst.id,
+        loan_id: loan.id,
+        profile_id: ownerId,
+        numero_parcela: inst.number || 1,
+        data_vencimento: inst.dueDate,
+        valor_parcela: inst.amount,
+        amount: inst.amount,
+        scheduled_principal: inst.scheduledPrincipal,
+        scheduled_interest: inst.scheduledInterest,
+        principal_remaining: inst.principalRemaining,
+        interest_remaining: inst.interestRemaining,
+        late_fee_accrued: inst.lateFeeAccrued,
+        status: 'PENDENTE',
+        paid_total: 0,
+      }));
+
+      const { error: deleteErr } = await supabase.from('parcelas').delete().eq('id', loan.installments[0].id);
+      if (deleteErr) throw deleteErr;
+
+      const { error: insertErr } = await supabase.from('parcelas').insert(payload);
+      if (insertErr) throw insertErr;
+
+      await supabase
+        .from('contratos')
+        .update({ total_to_receive: generated.totalToReceive })
+        .eq('id', loan.id);
+
+      rebuiltCount += 1;
+    }
+
+    return rebuiltCount;
+  },
+
   /**
    * Recalcula o estado de todos os empréstimos baseando-se no histórico (ledger).
    * Garante que os saldos de principal, juros e multas nas parcelas estejam corretos.

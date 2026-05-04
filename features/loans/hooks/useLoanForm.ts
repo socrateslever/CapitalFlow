@@ -246,7 +246,17 @@ export const useLoanForm = ({ initialData, clients, sources, userProfile, onAdd,
         
         // CORREÇÃO CRÍTICA: Aplica a data manual na primeira parcela
         if (loanPayload.installments?.[0] && manualFirstDueDate) {
-            loanPayload.installments[0].dueDate = manualFirstDueDate;
+            const firstGeneratedDue = parseDateOnlyUTC(loanPayload.installments[0].dueDate);
+            const firstManualDue = parseDateOnlyUTC(manualFirstDueDate);
+            const deltaMs = firstManualDue.getTime() - firstGeneratedDue.getTime();
+
+            loanPayload.installments = loanPayload.installments.map((inst, index) => {
+                if (index === 0) return { ...inst, dueDate: manualFirstDueDate };
+
+                const generatedDue = parseDateOnlyUTC(inst.dueDate);
+                const shiftedDue = new Date(generatedDue.getTime() + deltaMs);
+                return { ...inst, dueDate: toISODateOnlyUTC(shiftedDue) };
+            });
         }
         
         await onAdd(loanPayload);

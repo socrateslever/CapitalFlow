@@ -127,9 +127,9 @@ export function mapLoanFromDB(
       paidAmount: asNumber(inst?.paid_amount ?? inst?.paidAmount),
       logs: asArray(inst?.logs),
       renewalCount: asNumber(inst?.renewal_count ?? inst?.renewalCount),
-      number: asNumber(inst?.number ?? inst?.numero ?? inst?.n),
+      number: asNumber(inst?.number ?? inst?.numero_parcela ?? inst?.numero ?? inst?.n),
     } as Installment;
-  });
+  }).sort((a: any, b: any) => (a.number || 0) - (b.number || 0) || new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
 
   const startDate = safeDateString(l?.start_date ?? l?.startDate, 'startDate');
 

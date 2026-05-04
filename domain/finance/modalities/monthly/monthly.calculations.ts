@@ -7,15 +7,15 @@ const round = (num: number) => Math.round((num + Number.EPSILON) * 100) / 100;
 export const calculateMonthly = (loan: Loan, inst: Installment, policy: LoanPolicy): CalculationResult => {
     const daysLate = Math.max(0, getDaysDiff(inst.dueDate));
     
-    // ✅ FALLBACK: Se a parcela não tem principal individual, usa o principal do contrato (Floating Debt)
-    const principal = Number(inst?.principalRemaining) || Number(loan?.principal) || 0;
+    // ✅ Usa coalescência nula (??) para respeitar o zero real quando a parcela foi parcialmente paga
+    const principal = inst?.principalRemaining ?? loan?.principal ?? 0;
     
     // CRÍTICO: Usa o interestRemaining processado pelo rebuild.
     const monthlyRate = (Number(policy?.interestRate) || 0) / 100;
     const expectedMonthlyInterest = round(principal * monthlyRate);
     
-    // Se o banco tem 0 mas o contrato é Mensal de Juros, assume que o juro do mês é devido
-    const interest = (Number(inst?.interestRemaining) || 0) > 0 ? Number(inst.interestRemaining) : expectedMonthlyInterest;
+    // Se o banco tem null/undefined, assume que o juro do mês é devido (expected). Se for explicitamente 0 (pago), respeita o 0.
+    const interest = inst?.interestRemaining ?? expectedMonthlyInterest;
     
     let fineFixed = 0;
     let fineDaily = 0;

@@ -58,15 +58,21 @@ export const useLoanCardComputed = (loanRaw: Loan, sources: CapitalSource[], isS
   }, [loan.installments, agreement?.installments, hasActiveAgreement]);
 
   const fixedTermStats = useMemo(() => {
-      if (!isFixedTerm) return null;
+      if (!isFixedTerm || !loan.installments?.length) return null;
+      const sortedInstallments = [...loan.installments].sort(
+        (a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
+      );
       const start = parseDateOnlyUTC(loan.startDate);
-      const end = parseDateOnlyUTC(loan.installments[0].dueDate);
+      const end = parseDateOnlyUTC(sortedInstallments[sortedInstallments.length - 1].dueDate);
       const msPerDay = 1000 * 60 * 60 * 24;
-      const totalDays = Math.round((end.getTime() - start.getTime()) / msPerDay);
-      const dailyValue = (loan.totalToReceive || 0) / (totalDays || 1);
-      const currentDebt = (loan.installments[0].principalRemaining || 0) + (loan.installments[0].interestRemaining || 0);
+      const totalDays = Math.max(1, Math.round((end.getTime() - start.getTime()) / msPerDay));
+      const dailyValue = (loan.totalToReceive || 0) / totalDays;
+      const currentDebt = sortedInstallments.reduce(
+        (sum, inst) => sum + (inst.principalRemaining || 0) + (inst.interestRemaining || 0),
+        0
+      );
       const amountPaid = Math.max(0, (loan.totalToReceive || 0) - currentDebt);
-      const paidDays = dailyValue > 0 ? Math.floor((amountPaid + 0.1) / dailyValue) : 0;
+      const paidDays = dailyValue > 0 ? Math.min(totalDays, Math.floor((amountPaid + 0.1) / dailyValue)) : 0;
       const paidUntilDate = addDaysUTC(start, paidDays);
       const progressPercent = Math.min(100, Math.max(0, (paidDays / totalDays) * 100));
       return { totalDays, paidDays, dailyValue, progressPercent, paidUntilDate };

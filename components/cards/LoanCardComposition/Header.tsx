@@ -56,7 +56,8 @@ export const Header: React.FC<HeaderProps> = ({
     const now = new Date().getTime();
     const diff = now - lastBilled;
     const twentyFourHours = 24 * 60 * 60 * 1000;
-    return diff > 0 && diff < twentyFourHours;
+    const clockSkewTolerance = 5 * 60 * 1000;
+    return diff > -clockSkewTolerance && diff < twentyFourHours;
   }, []);
 
   const [isLocked, setIsLocked] = React.useState(() => checkIsLocked(loan.last_billed_at));

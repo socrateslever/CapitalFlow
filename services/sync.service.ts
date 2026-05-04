@@ -6,6 +6,15 @@ import { maskPhone, maskDocument } from '../utils/formatters';
 import { asNumber } from '../utils/safe';
 
 export const syncService = {
+  async mergeLocalRecord(table: string, id: string, data: any) {
+    const tableInstance = (db as any)[table];
+    if (!tableInstance) return false;
+
+    const current = await tableInstance.get(id);
+    await tableInstance.put({ ...(current || {}), ...data, id });
+    return true;
+  },
+
   /**
    * Sincroniza todos os dados de um perfil do Supabase para o Dexie
    */
@@ -122,7 +131,12 @@ export const syncService = {
     const tableInstance = (db as any)[table];
     if (tableInstance) {
       if (operation === 'DELETE') await tableInstance.delete(id);
-      else await tableInstance.put(data);
+      else if (operation === 'UPDATE') {
+        const current = await tableInstance.get(id);
+        await tableInstance.put({ ...(current || {}), ...data, id });
+      } else {
+        await tableInstance.put(data);
+      }
     }
 
     // 2. Adicionar na Fila de Escrita
@@ -171,8 +185,12 @@ export const syncService = {
         // Simulação de delay para evitar race conditions
         await new Promise(resolve => setTimeout(resolve, 100));
 
-        if (item.operation === 'UPDATE' || item.operation === 'INSERT') {
-          const { error: err } = await supabase.from(item.table).upsert(item.data);
+        if (item.operation === 'UPDATE') {
+          const { id: _ignoredId, ...patch } = item.data || {};
+          const { error: err } = await supabase.from(item.table).update(patch).eq('id', item.targetId);
+          error = err;
+        } else if (item.operation === 'INSERT') {
+          const { error: err } = await supabase.from(item.table).insert(item.data);
           error = err;
         } else if (item.operation === 'DELETE') {
           const { error: err } = await supabase.from(item.table).delete().eq('id', item.targetId);

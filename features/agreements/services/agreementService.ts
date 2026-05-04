@@ -47,6 +47,11 @@ function normalizeTipo(v: any, jurosModo: JurosModoDB, interestRate: number): Ti
   return "PARCELADO_SEM_JUROS";
 }
 
+function extractPreviousStatusFromLegacyNote(notes: any, fallback = "ATIVO") {
+  const match = String(notes || "").match(/STATUS_ANTERIOR:([A-Z_]+)/i);
+  return match?.[1] || fallback;
+}
+
 export const agreementService = {
 
   async createAgreement(
@@ -257,6 +262,94 @@ export const agreementService = {
     if (updateError) throw updateError;
 
     if (agreement) {
+      const agreementLoanShortId = String(agreement.loan_id || "").slice(0, 8);
+      const { data: legacyLoans, error: legacyError } = await supabase
+        .from("contratos")
+        .select("id, notes")
+        .ilike("notes", `%[LEGADO_PARCELAMENTO:${agreementLoanShortId};%`);
+
+      if (legacyError) throw legacyError;
+
+      if (legacyLoans && legacyLoans.length > 0) {
+        await supabase.from("contratos").update({
+          status: "CANCELADO",
+          is_archived: true,
+          acordo_ativo_id: null
+        }).eq("id", agreement.loan_id);
+
+        const { data: paidInstallments } = await supabase
+          .from("acordo_parcelas")
+          .select("paid_amount")
+          .eq("acordo_id", agreementId)
+          .in("status", ["PAGO", "PAID", "QUITADO"]);
+
+        let remainingToAbate = (paidInstallments || []).reduce((acc, curr) => acc + (Number(curr.paid_amount) || 0), 0);
+        const legacyIds = legacyLoans.map((loan: any) => loan.id);
+
+        const { data: originalInstallments } = await supabase
+          .from("parcelas")
+          .select("*")
+          .in("loan_id", legacyIds)
+          .eq("status", "RENEGOCIADO")
+          .order("loan_id", { ascending: true })
+          .order("numero_parcela", { ascending: true });
+
+        for (const inst of originalInstallments || []) {
+          const principalKey = inst.principal_remaining !== undefined ? 'principal_remaining' : 'principalRemaining';
+          const interestKey = inst.interest_remaining !== undefined ? 'interest_remaining' : 'interestRemaining';
+          const lateFeeKey = inst.late_fee_accrued !== undefined ? 'late_fee_accrued' : 'lateFeeAccrued';
+          const paidTotalKey = inst.paid_total !== undefined ? 'paid_total' : 'paidTotal';
+
+          let principal = Number(inst[principalKey] || 0);
+          let interest = Number(inst[interestKey] || 0);
+          let lateFee = Number(inst[lateFeeKey] || 0);
+          let paidTotal = Number(inst[paidTotalKey] || 0);
+
+          if (remainingToAbate > 0.01) {
+            const allocation = allocatePaymentFromBuckets({
+              paymentAmount: remainingToAbate,
+              principal,
+              interest,
+              lateFee,
+            });
+
+            lateFee -= allocation.paidLateFee;
+            interest -= allocation.paidInterest;
+            principal -= allocation.paidPrincipal;
+            remainingToAbate = allocation.avGenerated;
+            paidTotal += allocation.paidLateFee + allocation.paidInterest + allocation.paidPrincipal;
+          }
+
+          const isPaid = (principal + interest + lateFee) <= 0.05;
+          await supabase.from("parcelas").update({
+            [principalKey]: principal,
+            [interestKey]: interest,
+            [lateFeeKey]: lateFee,
+            [paidTotalKey]: paidTotal,
+            status: isPaid ? "PAID" : "PENDENTE"
+          }).eq("id", inst.id);
+        }
+
+        for (const loan of legacyLoans) {
+          await supabase.from("contratos").update({
+            status: extractPreviousStatusFromLegacyNote(loan.notes),
+            acordo_ativo_id: null
+          }).eq("id", loan.id);
+        }
+
+        await supabase.from("transacoes").insert({
+          id: generateUUID(),
+          loan_id: agreement.loan_id,
+          profile_id: agreement.profile_id,
+          date: new Date().toISOString(),
+          type: "RENEGOTIATION_BROKEN",
+          amount: 0,
+          notes: `Quebra de parcelamento. Contratos legados restaurados: ${legacyIds.map((id: string) => id.slice(0, 8)).join(", ")}.`
+        });
+
+        return;
+      }
+
       await supabase.from("contratos").update({ 
         status: "ATIVO",
         acordo_ativo_id: null
