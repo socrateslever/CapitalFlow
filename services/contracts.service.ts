@@ -20,11 +20,6 @@ const safeFloat = (v: any): number => {
   return parseFloat(str) || 0;
 };
 
-const isPaidInstallmentStatus = (status: any) => {
-  const s = String(status ?? '').trim().toUpperCase();
-  return ['PAID', 'PAGO', 'QUITADO', 'QUITADA'].includes(s);
-};
-
 export const contractsService = {
   async saveLoan(loan: Loan, activeUser: UserProfile, _sources: CapitalSource[], editingLoan: Loan | null, options?: { skipTransaction?: boolean }) {
     if (!activeUser?.id) throw new Error('Usuário não autenticado.');
@@ -156,36 +151,6 @@ export const contractsService = {
 
       // ✅ parcelas = profile_id (conforme seu schema)
       if (loan.installments?.length) {
-        const { data: existingInstallments, error: existingInstErr } = await supabase
-          .from('parcelas')
-          .select('id,status,paid_total,paid_amount,valor_pago,paid_principal,paid_interest,paid_late_fee')
-          .eq('loan_id', safeUUID(loanId));
-
-        if (existingInstErr) throw existingInstErr;
-
-        const protectedIds = new Set(
-          (existingInstallments || [])
-            .filter((inst: any) =>
-              isPaidInstallmentStatus(inst.status) ||
-              safeFloat(inst.paid_total) > 0 ||
-              safeFloat(inst.paid_amount) > 0 ||
-              safeFloat(inst.valor_pago) > 0 ||
-              safeFloat(inst.paid_principal) > 0 ||
-              safeFloat(inst.paid_interest) > 0 ||
-              safeFloat(inst.paid_late_fee) > 0
-            )
-            .map((inst: any) => String(inst.id))
-        );
-        const nextIds = new Set(loan.installments.map((inst) => ensureUUID(inst.id)));
-        const staleIds = (existingInstallments || [])
-          .map((inst: any) => String(inst.id))
-          .filter((id: string) => !protectedIds.has(id) && !nextIds.has(id));
-
-        if (staleIds.length > 0) {
-          const { error: deleteErr } = await supabase.from('parcelas').delete().in('id', staleIds);
-          if (deleteErr) throw deleteErr;
-        }
-
         const instPayload = loan.installments.map((inst) => ({
           id: ensureUUID(inst.id),
           loan_id: loanId,
@@ -204,11 +169,8 @@ export const contractsService = {
           late_fee_accrued: safeFloat(inst.lateFeeAccrued),
         }));
 
-        const writablePayload = instPayload.filter((inst) => !protectedIds.has(String(inst.id)));
-        if (writablePayload.length > 0) {
-          const { error: upsertErr } = await supabase.from('parcelas').upsert(writablePayload, { onConflict: 'id' });
-          if (upsertErr) throw upsertErr;
-        }
+        const { error: upsertErr } = await supabase.from('parcelas').upsert(instPayload, { onConflict: 'id' });
+        if (upsertErr) throw upsertErr;
       }
     } else {
       const { error } = await supabase.from('contratos').insert({
@@ -271,8 +233,8 @@ export const contractsService = {
 
   async saveNote(loanId: string, note: string) {
     const safeId = safeUUID(loanId);
-    if (!safeId) throw new Error('ID invalido.');
-
+    if (!safeId) throw new Error('ID inválido.');
+    
     try {
       const { syncService } = await import('./sync.service');
       await syncService.enqueueOperation({
@@ -287,6 +249,7 @@ export const contractsService = {
       throw e;
     }
   },
+
   async addAporte(params: {
     loanId: string;
     amount: number;
@@ -330,41 +293,20 @@ export const contractsService = {
 
   async markAsBilled(loanId: string, currentCount: number = 0) {
     const safeId = safeUUID(loanId);
-    if (!safeId) throw new Error('ID invalido.');
-
+    if (!safeId) throw new Error('ID inválido.');
+    
     const now = new Date().toISOString();
     const updatedData = {
       id: safeId,
       last_billed_at: now,
-      billing_count: (currentCount || 0) + 1
+      billing_count: (currentCount || 0) + 1 
     };
 
-    const { syncService } = await import('./sync.service');
-
     try {
-      const { error } = await supabase
-        .from('contratos')
-        .update({
-          last_billed_at: now,
-          billing_count: updatedData.billing_count,
-        })
-        .eq('id', safeId);
-
-      if (error) throw error;
-
-      await syncService.mergeLocalRecord('contratos', safeId, updatedData);
-      return { ok: true, synced: true, data: updatedData };
-    } catch (e: any) {
-      const message = String(e?.message || e || '');
-      const canQueue =
-        typeof navigator !== 'undefined' &&
-        (!navigator.onLine || /fetch|network|failed to fetch|internet|offline/i.test(message));
-
-      if (!canQueue) {
-        console.error('[ContractsService] Erro ao marcar cobranca:', e);
-        throw e;
-      }
-
+      const { syncService } = await import('./sync.service');
+      
+      // ✅ OFFLINE FIRST: Enfileira a operação
+      // Isso atualiza o Dexie local imediatamente e tenta enviar ao Supabase
       await syncService.enqueueOperation({
         table: 'contratos',
         operation: 'UPDATE',
@@ -372,7 +314,10 @@ export const contractsService = {
         id: safeId
       });
 
-      return { ok: true, synced: false, data: updatedData };
+      return true;
+    } catch (e: any) {
+      console.error('[ContractsService] Erro ao marcar cobrança:', e);
+      throw e;
     }
   },
 };

@@ -659,10 +659,8 @@ export const App: React.FC = () => {
                       );
 
                       if (hasLate) {
-                        contractsService.markAsBilled(l.id, l.billing_count || 0).then((result) => {
-                          if ((result as any)?.synced !== false) {
-                            fetchFullData(activeUser?.id || '');
-                          }
+                        contractsService.markAsBilled(l.id, l.billing_count || 0).then(() => {
+                          fetchFullData(activeUser?.id || '');
                         }).catch(err => {
                           if (isDev) console.error('[AUTO_BILL] Erro:', err);
                         });

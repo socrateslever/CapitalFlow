@@ -56,15 +56,19 @@ export const Header: React.FC<HeaderProps> = ({
     const now = new Date().getTime();
     const diff = now - lastBilled;
     const twentyFourHours = 24 * 60 * 60 * 1000;
-    const clockSkewTolerance = 5 * 60 * 1000;
-    return diff > -clockSkewTolerance && diff < twentyFourHours;
+    return diff > 0 && diff < twentyFourHours;
   }, []);
 
   const [isLocked, setIsLocked] = React.useState(() => checkIsLocked(loan.last_billed_at));
+  const lastClickedRef = React.useRef<number>(0);
 
   React.useEffect(() => {
     // Sincroniza estado se a prop mudar (ex: após refresh de dados)
-    setIsLocked(checkIsLocked(loan.last_billed_at));
+    // Mas IGNORA por 3 segundos após o clique para evitar race condition com stale storage
+    const now = Date.now();
+    if (now - lastClickedRef.current > 3000) {
+      setIsLocked(checkIsLocked(loan.last_billed_at));
+    }
     
     if (!loan.last_billed_at) {
       setIsLocked(false);
@@ -73,6 +77,11 @@ export const Header: React.FC<HeaderProps> = ({
     }
 
     const timer = setInterval(() => {
+      // ✅ Proteção contra Race Condition (Pilar 7 do Sync)
+      // Se clicamos agora, ignoramos a prop/intervalo por 3 segundos
+      const nowTs = Date.now();
+      if (nowTs - lastClickedRef.current < 3000) return;
+
       const lastBilled = new Date(loan.last_billed_at!).getTime();
       const now = new Date().getTime();
       const diff = now - lastBilled;
@@ -106,20 +115,10 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   // Prioridade de exibição de valores:
-  // 1. Se tem dívida total calculada (currentDebt) e ela é diferente do principal, mostra ela.
-  // 2. Se está atrasado, mostra o total (inclui multas).
-  // 3. Fallback para Principal.
-  let displayAmount = loan.principal;
-  let amountLabel = 'Total';
-  const totalCalculated = currentDebt ?? 0;
-  
-  if (isLate || isOverdueByDays) {
-      displayAmount = totalCalculated > 0 ? totalCalculated : loan.totalToReceive;
-      amountLabel = 'Total';
-  } else if (totalCalculated > 0 && Math.abs(totalCalculated - loan.principal) > 1) {
-      displayAmount = totalCalculated;
-      amountLabel = 'Total';
-  }
+  // 1. O saldo devedor calculado (currentDebt) é a verdade absoluta (respeita ledger, parciais e juros)
+  // 2. Fallback para Total a Receber ou Principal apenas se o cálculo falhar drasticamente
+  const displayAmount = currentDebt ?? loan.totalToReceive ?? loan.principal;
+  const amountLabel = 'Total';
 
   // Badges refinados
   let Badge = null;
@@ -211,6 +210,7 @@ export const Header: React.FC<HeaderProps> = ({
                       <button 
                         onClick={(e) => {
                           e.stopPropagation();
+                          lastClickedRef.current = Date.now();
                           setIsLocked(true);
                           onMarkAsBilled?.(loan);
                         }}

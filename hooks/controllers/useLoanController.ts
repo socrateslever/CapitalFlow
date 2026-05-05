@@ -323,7 +323,6 @@ export const useLoanController = (
       console.groupEnd();
 
       // 1. Recalcula estados dos empréstimos
-      await maintenanceService.rebuildLegacyFixedTermInstallments(loans, ownerId);
       await maintenanceService.recalculateAllLoans(loans);
       
       // 2. Sincroniza saldo do perfil (Lucro Realizado)

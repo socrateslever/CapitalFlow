@@ -1,5 +1,6 @@
 import { Loan, LoanStatus, SortOption } from '../../types';
-import { getInstallmentStatusLogic } from '../../domain/finance/calculations';
+import { getInstallmentStatusLogic, rebuildLoanStateFromLedger } from '../../domain/finance/calculations';
+import { loanEngine } from '../../domain/loanEngine';
 import { getDaysDiff } from '../../utils/dateHelpers';
 import { normalizeName, onlyDigits } from '../../utils/formatters';
 
@@ -30,7 +31,8 @@ export interface ClientGroup {
 export const groupLoansByClient = (loans: Loan[], sortOption: SortOption = 'DUE_DATE_ASC'): ClientGroup[] => {
   const groups: Record<string, ClientGroup> = {};
   
-  loans.forEach(loan => {
+  loans.forEach(loanRaw => {
+    const loan = rebuildLoanStateFromLedger(loanRaw);
     const rawId = loan.clientId;
     const rawName = (loan.debtorName || 'Cliente Desconhecido').trim();
     const rawDoc = onlyDigits(loan.debtorDocument);
@@ -72,7 +74,7 @@ export const groupLoansByClient = (loans: Loan[], sortOption: SortOption = 'DUE_
     groups[groupKey].loans.push(loan);
     groups[groupKey].contractCount++;
 
-    const loanDebt = loan.installments.reduce((acc, i) => acc + (Number(i.principalRemaining) || 0) + (Number(i.interestRemaining) || 0), 0);
+    const loanDebt = loanEngine.computeRemainingBalance(loan).totalRemaining;
     groups[groupKey].totalDebt += loanDebt;
   });
 
