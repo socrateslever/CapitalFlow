@@ -81,11 +81,9 @@ export const DashboardContainer: React.FC<DashboardContainerProps> = ({
 
   const handleMarkAsBilled = async (loan: Loan) => {
     try {
-      const result = await contractsService.markAsBilled(loan.id, loan.billing_count || 0);
+      await contractsService.markAsBilled(loan.id, loan.billing_count || 0);
       showToast("Contrato marcado como cobrado!", "success");
-      if ((result as any)?.synced !== false) {
-        onRefresh();
-      }
+      onRefresh();
     } catch (e: any) {
       showToast("Erro ao marcar cobrança: " + e.message, "error");
     }

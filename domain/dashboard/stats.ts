@@ -2,8 +2,12 @@
 import { Loan } from '../../types';
 import { loanEngine } from '../loanEngine';
 import { resolveLoanVisualClassification } from '../../utils/loanFilterResolver';
+import { rebuildLoanStateFromLedger } from '../finance/calculations';
 
-export const buildDashboardStats = (loans: Loan[], sources: any[] = [], activeUser: any = null) => {
+export const buildDashboardStats = (loansRaw: Loan[], sources: any[] = [], activeUser: any = null) => {
+  // Reconstroi todos os contratos do ledger para garantir precisão total nos contadores
+  const loans = loansRaw.map(l => rebuildLoanStateFromLedger(l));
+
   // 🚀 FILTRO DE SEGURANÇA: Remove contratos de "teste" da contagem e cálculos
   const filteredLoans = loans.filter(l => {
     const name = (l.debtorName || '').toLowerCase();
