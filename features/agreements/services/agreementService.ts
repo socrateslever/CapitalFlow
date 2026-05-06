@@ -271,12 +271,6 @@ export const agreementService = {
       if (legacyError) throw legacyError;
 
       if (legacyLoans && legacyLoans.length > 0) {
-        await supabase.from("contratos").update({
-          status: "CANCELADO",
-          is_archived: true,
-          acordo_ativo_id: null
-        }).eq("id", agreement.loan_id);
-
         const { data: paidInstallments } = await supabase
           .from("acordo_parcelas")
           .select("paid_amount")
@@ -284,7 +278,7 @@ export const agreementService = {
           .in("status", ["PAGO", "PAID", "QUITADO"]);
 
         let remainingToAbate = (paidInstallments || []).reduce((acc, curr) => acc + (Number(curr.paid_amount) || 0), 0);
-        const legacyIds = legacyLoans.map((loan: any) => loan.id);
+        const legacyIds = [agreement.loan_id, ...legacyLoans.map((loan: any) => loan.id)];
 
         const { data: originalInstallments } = await supabase
           .from("parcelas")
@@ -330,10 +324,17 @@ export const agreementService = {
           }).eq("id", inst.id);
         }
 
+        await supabase.from("contratos").update({
+          status: "ATIVO",
+          acordo_ativo_id: null,
+          is_archived: false
+        }).eq("id", agreement.loan_id);
+
         for (const loan of legacyLoans) {
           await supabase.from("contratos").update({
             status: extractPreviousStatusFromLegacyNote(loan.notes),
-            acordo_ativo_id: null
+            acordo_ativo_id: null,
+            is_archived: false
           }).eq("id", loan.id);
         }
 

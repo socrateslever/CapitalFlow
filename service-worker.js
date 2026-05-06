@@ -1,4 +1,4 @@
-const CACHE_NAME = 'capitalflow-v2';
+const CACHE_NAME = 'capitalflow-v3';
 const APP_SHELL = ['/', '/index.html', '/index.css'];
 
 self.addEventListener('install', (event) => {
@@ -24,6 +24,15 @@ self.addEventListener('fetch', (event) => {
   const isNavigate = req.mode === 'navigate';
   const url = new URL(req.url);
   const isSameOrigin = url.origin === self.location.origin;
+  const isDevAsset =
+    url.pathname.startsWith('/node_modules/') ||
+    url.pathname.startsWith('/@vite') ||
+    url.pathname.startsWith('/@react-refresh') ||
+    url.pathname.includes('/.vite/') ||
+    url.pathname.endsWith('.ts') ||
+    url.pathname.endsWith('.tsx');
+
+  if (isDevAsset) return;
 
   if (isNavigate) {
     event.respondWith(

@@ -56,6 +56,27 @@ export class AppErrorBoundary extends React.Component<Props, State> {
     } catch {}
   }
 
+  private async clearBrowserStateAndReload() {
+    try {
+      localStorage.clear();
+      sessionStorage.clear();
+
+      if ('serviceWorker' in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(registrations.map((registration) => registration.unregister()));
+      }
+
+      if ('caches' in window) {
+        const keys = await caches.keys();
+        await Promise.all(keys.map((key) => caches.delete(key)));
+      }
+    } finally {
+      const url = new URL(location.href);
+      url.searchParams.set('cache_reset', Date.now().toString());
+      location.replace(url.toString());
+    }
+  }
+
   render() {
     if (this.state.hasError) {
       return (
@@ -161,10 +182,7 @@ export class AppErrorBoundary extends React.Component<Props, State> {
                   cursor: 'pointer',
                   fontSize: 13
                 }}
-                onClick={() => {
-                  localStorage.clear();
-                  location.reload();
-                }}
+                onClick={() => void this.clearBrowserStateAndReload()}
               >
                 Limpar Cache
               </button>

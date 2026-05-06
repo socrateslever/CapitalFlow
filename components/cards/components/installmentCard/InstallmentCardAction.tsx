@@ -28,9 +28,10 @@ export const InstallmentCardAction: React.FC<InstallmentCardActionProps> = ({
                     e.stopPropagation();
                     onNavigate?.();
                 }}
-                className="w-full py-3 rounded-full text-[10px] font-black uppercase transition-all bg-blue-600 text-white shadow-lg shadow-blue-600/40 flex items-center justify-center gap-2 hover:bg-blue-500 active:scale-95 text-wrap-safe leading-tight"
+                className="text-[9px] font-black uppercase bg-blue-600/20 text-blue-400 border border-blue-500/30 px-3 py-1.5 rounded-lg hover:bg-blue-600 hover:text-white transition-all flex items-center gap-1.5"
+                title="Abrir Contrato para Pagar"
             >
-                <MoreHorizontal size={14} className="shrink-0" /> Abrir Contrato
+                <MoreHorizontal size={12} /> Abrir
             </button>
         );
     }
@@ -43,9 +44,12 @@ export const InstallmentCardAction: React.FC<InstallmentCardActionProps> = ({
                 e.stopPropagation();
                 onNavigate?.();
             }}
-            className="w-full py-3 rounded-full text-[10px] font-black uppercase transition-all bg-slate-800 text-slate-300 border border-slate-700 flex items-center justify-center gap-2 cursor-pointer hover:bg-slate-700 transition-colors text-wrap-safe leading-tight"
+            className="flex flex-col items-end cursor-pointer group"
         >
-            <Lock size={12} className="shrink-0" /> {isFullyFinalized ? 'Contrato Finalizado' : isRenegotiated ? 'Renegociado' : 'Parcela Paga'}
+            <span className="text-[9px] font-black uppercase flex items-center gap-1 text-emerald-500">
+                <Lock size={10} className="group-hover:opacity-70 transition-opacity" /> 
+                {isFullyFinalized ? 'Finalizado' : isRenegotiated ? 'Renegociado' : 'Pago'}
+            </span>
         </div>
     );
 };

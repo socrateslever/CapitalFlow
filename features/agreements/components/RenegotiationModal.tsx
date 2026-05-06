@@ -6,9 +6,7 @@ import { Calculator, CheckCircle2, AlertTriangle, Hash, DollarSign, Percent, Tre
 import { simulateAgreement, CalculationMode } from "../logic/calculations";
 import { formatMoney } from "../../../utils/formatters";
 import { agreementService } from "../services/agreementService";
-import { contractsService } from "../../../services/contracts.service";
 import { legalService } from "../../legal/services/legalService";
-import { generateUUID } from "../../../utils/generators";
 import { safeUUID } from "../../../utils/uuid";
 import { supabase } from "../../../lib/supabase";
 
@@ -95,64 +93,28 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
 
             {
                 const mainLoan = loans[0];
-                const newLoanId = generateUUID();
-                const newLoanShortId = newLoanId.slice(0, 8);
-                const frequencyMap: Record<string, any> = { 'WEEKLY': 'DAILY', 'BIWEEKLY': 'DAILY', 'MONTHLY': 'MONTHLY' };
-                const newLoan: Loan = {
-                    id: newLoanId,
-                    profile_id: mainLoan.profile_id,
-                    clientId: mainLoan.clientId || (mainLoan as any).client_id,
-                    sourceId: mainLoan.sourceId || (mainLoan as any).source_id,
-                    debtorName: mainLoan.debtorName,
-                    debtorPhone: mainLoan.debtorPhone,
-                    debtorDocument: mainLoan.debtorDocument,
-                    debtorAddress: mainLoan.debtorAddress,
-                    principal: simulation.negotiatedTotal,
-                    totalToReceive: simulation.negotiatedTotal,
-                    interestRate: finalType === 'PARCELADO_COM_JUROS' ? (Number(interestRate) || 0) : 0,
-                    finePercent: mainLoan.finePercent || 0,
-                    dailyInterestPercent: mainLoan.dailyInterestPercent || 0,
-                    billingCycle: frequencyMap[frequency] || 'MONTHLY',
-                    startDate: new Date().toISOString(),
-                    status: LoanStatus.ATIVO,
-                    notes: `Contrato parcelado gerado a partir de legado. Originais: ${loans.map(l => l.id.slice(0, 8)).join(', ')}. `,
-                    installments: simulation.installments.map((inst: any) => ({
-                        id: generateUUID(),
-                        number: inst.number,
-                        dueDate: inst.dueDate,
-                        amount: inst.amount,
-                        scheduledPrincipal: inst.amount,
-                        scheduledInterest: 0,
-                        principalRemaining: inst.amount,
-                        interestRemaining: 0,
-                        lateFeeAccrued: 0,
-                        paidTotal: 0,
-                        paidPrincipal: 0,
-                        paidInterest: 0,
-                        paidLateFee: 0,
-                        status: LoanStatus.PENDING
-                    })),
-                    ledger: [],
-                    preferredPaymentMethod: mainLoan.preferredPaymentMethod,
-                    pixKey: mainLoan.pixKey,
-                    guaranteeDescription: mainLoan.guaranteeDescription,
-                };
+                const mainLoanId = mainLoan.id;
+                const mainLoanShortId = mainLoanId.slice(0, 8);
 
-                await contractsService.saveLoan(newLoan, activeUser, [], null, { skipTransaction: true });
-                const agreementId = await agreementService.createAgreement(newLoanId, { ...commonAgreementData, loanId: newLoanId } as any, simulation.installments, activeUser.id);
+                const agreementId = await agreementService.createAgreement(
+                    mainLoanId,
+                    { ...commonAgreementData, loanId: mainLoanId } as any,
+                    simulation.installments,
+                    activeUser.id
+                );
 
-                for (const loan of loans) {
+                for (const loan of loans.slice(1)) {
                     const previousStatus = String(loan.status || LoanStatus.ATIVO);
                     const legacyNote =
-                        `\n[LEGADO_PARCELAMENTO:${newLoanShortId};STATUS_ANTERIOR:${previousStatus}] ` +
-                        `Contrato migrado para novo parcelamento ${newLoanShortId}.`;
+                        `\n[LEGADO_PARCELAMENTO:${mainLoanShortId};STATUS_ANTERIOR:${previousStatus}] ` +
+                        `Contrato unificado no parcelamento ${mainLoanShortId}.`;
                     const updatedNotes = (loan.notes || '') + legacyNote;
                     await supabase.from('contratos').update({ status: LoanStatus.RENEGOCIADO, notes: updatedNotes }).eq('id', loan.id);
                 }
 
                 try {
                     const agreementData = { ...commonAgreementData, id: agreementId, createdAt: new Date().toISOString(), status: 'ATIVO', installments: simulation.installments };
-                    const params = legalService.prepareDocumentParams(newLoan, activeUser, agreementData as any);
+                    const params = legalService.prepareDocumentParams(mainLoan, activeUser, agreementData as any);
                     const ownerId = safeUUID((activeUser as any).supervisor_id) || safeUUID(activeUser.id);
                     if (!ownerId) throw new Error("ID do usuario invalido.");
                     const doc = await legalService.generateAndRegisterDocument(agreementId, params, ownerId);
@@ -276,7 +238,7 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
 
                         <div className="bg-amber-900/20 border border-amber-500/30 p-3 rounded-xl flex items-start gap-3">
                             <AlertTriangle size={20} className="text-amber-500 flex-shrink-0 mt-1"/>
-                            <p className="text-[10px] text-amber-200 leading-relaxed"><b>Atenção:</b> {loans.length > 1 ? `Ao confirmar, os ${loans.length} contratos originais serão marcados como RENEGOCIADOS e um NOVO contrato unificado será criado. As parcelas originais serão mantidas no histórico.` : "Ao confirmar, as parcelas originais serão marcadas como RENEGOCIADAS e um novo acordo será criado, mantendo o histórico."}</p>
+                            <p className="text-[10px] text-amber-200 leading-relaxed"><b>Atenção:</b> {loans.length > 1 ? `Ao confirmar, o contrato principal será transformado em um único parcelamento ativo e os demais ficarão apenas como legado histórico.` : "Ao confirmar, este contrato será transformado em um contrato parcelado, sem criar outro contrato para o mesmo cliente."}</p>
                         </div>
 
                         <div className="flex gap-3">

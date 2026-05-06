@@ -1,6 +1,7 @@
 
 import React, { memo } from 'react';
 import { Loan, Installment } from '../../../types';
+import { formatMoney } from '../../../utils/formatters';
 import { InstallmentViewModel } from './InstallmentGrid.logic';
 
 // Importação dos Componentes Atômicos
@@ -62,32 +63,59 @@ const InstallmentCardComponent: React.FC<InstallmentCardProps> = ({
     }
 
     return (
-        <div id={originalInst.id} className={containerClasses}>
-            <div className="flex justify-between items-start mb-3 sm:mb-4">
+        <div id={originalInst.id} className={`flex justify-between items-center px-3 py-2.5 rounded-lg border transition-all ${
+            isRenegotiated ? 'bg-slate-900/80 border-slate-700/50 opacity-60' :
+            isPaid || isZeroBalance ? 'bg-emerald-500/5 border-emerald-500/10 opacity-60' : 
+            isLateInst ? 'bg-rose-500/5 border-rose-500/20' : 
+            isPrepaid ? 'bg-emerald-500/5 border-emerald-500/20' : 
+            'bg-slate-900/40 border-slate-800/50 hover:bg-slate-900/60'
+        }`}>
+            <div className="flex items-center gap-3">
+                <span className={`text-[10px] font-black w-4 text-center ${isLateInst ? 'text-rose-500' : isPaid ? 'text-emerald-500' : 'text-slate-500'}`}>
+                    {realIndex + 1}
+                </span>
                 <div>
-                    <InstallmentCardHeader realIndex={realIndex} showProgress={showProgress} renewalCount={originalInst.renewalCount} />
-                    <InstallmentCardTimeline 
-                        loan={loan}
-                        originalInst={originalInst}
-                        displayDueDate={displayDueDate}
-                        paidUntilDate={paidUntilDate}
-                        strategy={strategy}
-                        isPrepaid={isPrepaid}
-                        isLateInst={isLateInst}
-                        isPaid={isPaid}
-                    />
+                    <div className="flex items-center gap-2">
+                        <p className={`text-[12px] font-bold ${isLateInst ? 'text-rose-400' : isPaid ? 'text-emerald-400' : 'text-slate-200'}`}>
+                            {formatMoney(debt.total, isStealthMode)}
+                        </p>
+                        {isPrepaid && !isPaid && (
+                            <span className="px-1.5 py-0.5 rounded text-[8px] font-black bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 uppercase">
+                                Adiantada
+                            </span>
+                        )}
+                        {isLateInst && !isPaid && (
+                            <span className="px-1.5 py-0.5 rounded text-[8px] font-black bg-rose-500/10 text-rose-500 border border-rose-500/20 uppercase">
+                                Atrasada
+                            </span>
+                        )}
+                    </div>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                        <p className="text-[9px] text-slate-500 font-medium flex items-center gap-1">
+                            {displayDueDate ? new Date(displayDueDate).toLocaleDateString('pt-BR') : 'N/A'}
+                        </p>
+                        {!isPaid && debt.total > originalInst.amount && (
+                            <>
+                                <span className="text-slate-700">•</span>
+                                <p className="text-[8px] text-rose-400/80 font-bold">
+                                    +{formatMoney(debt.total - originalInst.amount, isStealthMode)} juros
+                                </p>
+                            </>
+                        )}
+                    </div>
                 </div>
             </div>
-            <InstallmentCardStatus text={statusText} colorClass={statusColor} />
-            <InstallmentCardAmounts 
-                debt={debt} 
-                originalAmount={originalInst.amount}
-                isPrepaid={isPrepaid} 
-                isLateInst={isLateInst} 
-                isPaid={isPaid} 
-                isStealthMode={isStealthMode} 
-            />
-            <InstallmentCardAction isDisabled={isActionDisabled} isFullyFinalized={isFullyFinalized} loan={loan} originalInst={originalInst} debt={debt} onNavigate={onNavigate} />
+
+            <div className="text-right flex items-center gap-2 shrink-0">
+                <InstallmentCardAction 
+                    isDisabled={isActionDisabled} 
+                    isFullyFinalized={isFullyFinalized} 
+                    loan={loan} 
+                    originalInst={originalInst} 
+                    debt={debt} 
+                    onNavigate={onNavigate} 
+                />
+            </div>
         </div>
     );
 };

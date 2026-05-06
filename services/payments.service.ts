@@ -2,6 +2,7 @@
 import { supabase } from '../lib/supabase';
 import type { CapitalSource, Installment, Loan, UserProfile } from '../types';
 import { loanEngine } from '../domain/loanEngine';
+import { calculateTotalDue } from '../domain/finance/calculations';
 import { todayDateOnlyUTC } from '../utils/dateHelpers';
 import { generateUUID } from '../utils/generators';
 import { isUUID, safeUUID } from '../utils/uuid';
@@ -22,6 +23,23 @@ const normalize = (s: string) =>
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .trim();
+
+const roundMoney = (value: number) => Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
+
+function resolveRenewalBuckets(loan: Loan, installment: Installment) {
+  const principal = Number(installment.principalRemaining ?? loan.principal ?? 0) || 0;
+  const currentCalc = calculateTotalDue(loan, installment);
+  const explicitInterest = Number(currentCalc.interest || 0);
+  const explicitLateFee = Number(currentCalc.lateFee || 0);
+  const expectedCycleInterest = roundMoney(principal * ((Number((loan as any).interestRate) || 0) / 100));
+  const interest = Math.max(explicitInterest, expectedCycleInterest);
+
+  return {
+    interest,
+    lateFee: explicitLateFee,
+    total: roundMoney(interest + explicitLateFee),
+  };
+}
 
 function resolveCaixaLivreIdFromMemory(sources: CapitalSource[]): string | null {
   if (!Array.isArray(sources) || sources.length === 0) return null;
@@ -188,6 +206,23 @@ export const paymentsService = {
     const forgivenLateFee = Number(amortization.forgivenLateFee || 0);
     let totalPaid = principalPaid + interestPaid + lateFeePaid;
 
+    const renewalBuckets = resolveRenewalBuckets(loan, installmentSnapshot);
+    const shouldForceRenewalAllocation =
+      principalPaid > 0 &&
+      renewalBuckets.total > 0.05 &&
+      amountToPay <= renewalBuckets.total + 0.05;
+
+    if (shouldForceRenewalAllocation) {
+      lateFeePaid = Math.min(amountToPay, renewalBuckets.lateFee);
+      interestPaid = roundMoney(amountToPay - lateFeePaid);
+      principalPaid = 0;
+      totalPaid = roundMoney(interestPaid + lateFeePaid);
+      (amortization as any).paidPrincipal = 0;
+      (amortization as any).paidInterest = interestPaid;
+      (amortization as any).paidLateFee = lateFeePaid;
+      (amortization as any).avGenerated = 0;
+    }
+
     // ✅ DEFENSIVE FALLBACK: Se o motor de amortização falhou (retornou 0) mas há valor sendo pago
     if (totalPaid <= 0 && amountToPay > 0) {
       console.warn('[Payments] Amortização retornou ZERO. Ativando alocação defensiva...', { amountToPay, loanId: loan.id });
@@ -220,6 +255,15 @@ export const paymentsService = {
     const paymentDate = realDate || todayDateOnlyUTC();
     const sourceId = safeUUID((loan as any).sourceId);
     if (!sourceId) throw new Error('Fonte do contrato inválida (sourceId).');
+
+    const nextCycleInterest = roundMoney(
+      Number(installmentSnapshot.principalRemaining || 0) * ((Number((loan as any).interestRate) || 0) / 100)
+    );
+    const isInterestRenewal =
+      principalPaid <= 0.05 &&
+      renewalBuckets.total > 0.05 &&
+      amountToPay >= renewalBuckets.total - 0.05 &&
+      Number(installmentSnapshot.principalRemaining || 0) > 0.05;
 
     let caixaLivreId = resolveCaixaLivreIdFromMemory(sources);
     if (!caixaLivreId) caixaLivreId = await resolveCaixaLivreIdFromDB(ownerId);
@@ -262,11 +306,23 @@ export const paymentsService = {
     }
 
     if (manualDate) {
+      const nextDueDate = manualDate.toISOString().split('T')[0];
+      const updatePayload: any = {
+        data_vencimento: nextDueDate,
+        due_date: nextDueDate,
+      };
+
+      if (isInterestRenewal) {
+        updatePayload.interest_remaining = nextCycleInterest;
+        updatePayload.scheduled_interest = nextCycleInterest;
+        updatePayload.late_fee_accrued = 0;
+        updatePayload.status = 'PENDING';
+        updatePayload.paid_date = null;
+      }
+
       const { error: dateError } = await supabase
         .from('parcelas')
-        .update({
-          data_vencimento: manualDate.toISOString().split('T')[0],
-        })
+        .update(updatePayload)
         .eq('id', instId);
 
       if (dateError) {

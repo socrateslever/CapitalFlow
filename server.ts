@@ -16,6 +16,30 @@ async function startServer() {
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
+    app.use((req, res, next) => {
+      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+      res.setHeader("Pragma", "no-cache");
+      res.setHeader("Expires", "0");
+      next();
+    });
+
+    app.get("/service-worker.js", (_req, res) => {
+      res.type("application/javascript").send(`
+self.addEventListener('install', function () {
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', function (event) {
+  event.waitUntil((async function () {
+    var keys = await caches.keys();
+    await Promise.all(keys.map(function (key) { return caches.delete(key); }));
+    await self.registration.unregister();
+    await self.clients.claim();
+  })());
+});
+`);
+    });
+
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",

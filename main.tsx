@@ -11,25 +11,44 @@ if (typeof window !== 'undefined') {
   (window as any).__BOOT_LOG('Check 1: main.tsx loaded');
 }
 
-const rootElement = document.getElementById('root');
-if (!rootElement) {
-  console.error("CapitalFlow: Could not find root element to mount to");
-  throw new Error("Could not find root element to mount to");
+const isDevCacheResetting =
+  typeof window !== 'undefined' && (window as any).__CF_DEV_CACHE_RESETTING__;
+
+if (isDevCacheResetting) {
+  console.log('CapitalFlow: dev cache reset in progress; render skipped.');
+} else {
+  const rootElement = document.getElementById('root');
+  if (!rootElement) {
+    console.error("CapitalFlow: Could not find root element to mount to");
+    throw new Error("Could not find root element to mount to");
+  }
+
+  const root = createRoot(rootElement);
+  root.render(
+    <React.StrictMode>
+      <AppErrorBoundary>
+        <BrowserRouter>
+          <App />
+        </BrowserRouter>
+      </AppErrorBoundary>
+    </React.StrictMode>
+  );
+  console.log('CapitalFlow: Render initiated.');
 }
 
-const root = createRoot(rootElement);
-root.render(
-  <React.StrictMode>
-    <AppErrorBoundary>
-      <BrowserRouter>
-        <App />
-      </BrowserRouter>
-    </AppErrorBoundary>
-  </React.StrictMode>
-);
-console.log('CapitalFlow: Render initiated.');
+if (typeof window !== 'undefined' && 'serviceWorker' in navigator && import.meta.env.DEV) {
+  window.addEventListener('load', async () => {
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    await Promise.all(registrations.map((registration) => registration.unregister()));
 
-if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+    if ('caches' in window) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map((key) => caches.delete(key)));
+    }
+  });
+}
+
+if (typeof window !== 'undefined' && 'serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/service-worker.js')
       .then((registration) => {
